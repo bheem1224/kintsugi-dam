@@ -4,7 +4,7 @@ import * as React from "react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
-import { ShieldAlert, Cpu } from "lucide-react"
+import { ShieldAlert, Cpu, CheckCircle } from "lucide-react"
 import { AIRepairDialog } from "@/components/AIRepairDialog"
 
 // Types matching the backend response
@@ -56,6 +56,7 @@ export default function TriageGallery() {
 
       {corruptedFiles.length === 0 ? (
         <div className="flex flex-col items-center justify-center p-12 text-center border rounded-lg border-dashed">
+          <CheckCircle className="w-12 h-12 text-primary mb-4" />
           <p className="text-lg font-medium">All clear</p>
           <p className="text-sm text-muted-foreground mt-1">No corrupted files detected in the active library.</p>
         </div>

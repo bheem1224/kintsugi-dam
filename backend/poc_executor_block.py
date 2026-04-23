@@ -2,6 +2,7 @@ import asyncio
 from concurrent.futures import ProcessPoolExecutor
 import time
 
+
 async def test_blocking():
     start = time.time()
 
@@ -25,6 +26,7 @@ async def test_blocking():
 
     # Run concurrently - the event loop will block waiting for run_scan_sim to finish
     await asyncio.gather(run_scan_sim(), ticker())
+
 
 if __name__ == "__main__":
     asyncio.run(test_blocking())

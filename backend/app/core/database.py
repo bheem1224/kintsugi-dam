@@ -13,6 +13,7 @@ engine = create_async_engine(
     echo=False,
 )
 
+
 # Apply SQLite pragmas on connection
 @event.listens_for(engine.sync_engine, "connect")
 def set_sqlite_pragma(dbapi_connection, connection_record):
@@ -21,14 +22,17 @@ def set_sqlite_pragma(dbapi_connection, connection_record):
     cursor.execute("PRAGMA synchronous=NORMAL")
     cursor.close()
 
+
 # Create the async session factory
 async_session_maker = async_sessionmaker(
     engine, class_=AsyncSession, expire_on_commit=False
 )
 
+
 # Base class for SQLAlchemy 2.0 declarative models
 class Base(DeclarativeBase):
     pass
+
 
 # Dependency for FastAPI to inject database sessions
 async def get_db() -> AsyncGenerator[AsyncSession, None]:

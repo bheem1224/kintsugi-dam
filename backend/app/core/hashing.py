@@ -4,6 +4,7 @@ from concurrent.futures import ProcessPoolExecutor
 # Global ProcessPoolExecutor to avoid blocking the asyncio event loop on teardown
 hash_pool = ProcessPoolExecutor()
 
+
 def calculate_sha256(file_path: str) -> str:
     """
     Synchronously calculates the SHA-256 hash of a file.

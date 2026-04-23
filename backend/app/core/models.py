@@ -43,3 +43,4 @@ class SystemSettings(Base):
     discord_webhook_url: Mapped[Optional[str]] = mapped_column(String, nullable=True)
     ntfy_topic_url: Mapped[Optional[str]] = mapped_column(String, nullable=True)
     consensus_threshold: Mapped[int] = mapped_column(Integer, default=2)
+    cloud_credits: Mapped[int] = mapped_column(Integer, default=0)

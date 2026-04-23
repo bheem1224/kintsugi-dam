@@ -19,7 +19,7 @@ export default function SettingsPage() {
     setSaving(true)
     
     try {
-      await fetch("http://localhost:8000/api/settings/webhooks", {
+      await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/api/settings/webhooks`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

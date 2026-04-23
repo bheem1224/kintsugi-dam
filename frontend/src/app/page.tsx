@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { ShieldAlert, Cpu } from "lucide-react"
+import { AIRepairDialog } from "@/components/AIRepairDialog"
 
 // Types matching the backend response
 type MediaFile = {
@@ -20,11 +21,12 @@ type MediaFile = {
 export default function TriageGallery() {
   const [corruptedFiles, setCorruptedFiles] = React.useState<MediaFile[]>([])
   const [loading, setLoading] = React.useState(true)
+  const [selectedFile, setSelectedFile] = React.useState<MediaFile | null>(null)
 
   React.useEffect(() => {
     async function fetchCorrupted() {
       try {
-        const res = await fetch("http://localhost:8000/api/files/corrupted")
+        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/api/files/corrupted`)
         if (res.ok) {
           const data = await res.json()
           setCorruptedFiles(data)
@@ -88,7 +90,12 @@ export default function TriageGallery() {
                   <ShieldAlert className="w-4 h-4 mr-2" />
                   Quarantine
                 </Button>
-                <Button variant="default" className="flex-1" size="sm">
+                <Button
+                  variant="default"
+                  className="flex-1"
+                  size="sm"
+                  onClick={() => setSelectedFile(file)}
+                >
                   <Cpu className="w-4 h-4 mr-2" />
                   Repair with AI
                 </Button>
@@ -96,6 +103,13 @@ export default function TriageGallery() {
             </Card>
           ))}
         </div>
+      )}
+
+      {selectedFile && (
+        <AIRepairDialog
+          file={selectedFile}
+          onClose={() => setSelectedFile(null)}
+        />
       )}
     </div>
   )

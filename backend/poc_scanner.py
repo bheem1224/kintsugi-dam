@@ -8,10 +8,12 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__))))
 from app.core.scanner import run_scan
 from app.core.database import async_session_maker, engine, Base
 
+
 async def setup_db():
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.drop_all)
         await conn.run_sync(Base.metadata.create_all)
+
 
 async def test_path_traversal():
     await setup_db()
@@ -20,7 +22,7 @@ async def test_path_traversal():
 
     malicious_filename = "test_scan_dir/..%2f..%2f..%2fetc%2fpasswd"
     with open(malicious_filename, "w") as f:
-         f.write("fake content")
+        f.write("fake content")
 
     async with async_session_maker() as session:
         result = await run_scan("test_scan_dir", session)
@@ -29,9 +31,11 @@ async def test_path_traversal():
     async with async_session_maker() as session:
         from app.core.models import MediaFile
         from sqlalchemy import select
+
         records = await session.execute(select(MediaFile))
         for r in records.scalars().all():
-             print(f"Stored filepath: {r.filepath}")
+            print(f"Stored filepath: {r.filepath}")
+
 
 if __name__ == "__main__":
     try:

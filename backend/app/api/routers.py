@@ -12,16 +12,16 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
+
 @router.get("/files/corrupted", response_model=List[MediaFileResponse])
 async def get_corrupted_files(db: AsyncSession = Depends(get_db)):
-    result = await db.execute(select(MediaFile).where(MediaFile.state == 'corrupted'))
+    result = await db.execute(select(MediaFile).where(MediaFile.state == "corrupted"))
     return result.scalars().all()
+
 
 @router.post("/files/{file_id}/repair/ai", response_model=AIRepairResponse)
 async def repair_file_ai(
-    file_id: int,
-    request: AIRepairRequest,
-    db: AsyncSession = Depends(get_db)
+    file_id: int, request: AIRepairRequest, db: AsyncSession = Depends(get_db)
 ):
     if request.provider == "cloud":
         result = await db.execute(select(SystemSettings))
@@ -32,12 +32,15 @@ async def repair_file_ai(
 
         settings.cloud_credits -= 1
         await db.commit()
-        logger.info(f"Deducted 1 cloud credit for file {file_id}. Remaining: {settings.cloud_credits}")
+        logger.info(
+            f"Deducted 1 cloud credit for file {file_id}. Remaining: {settings.cloud_credits}"
+        )
 
         # Simulate AI repair
         return AIRepairResponse(status="success", message="Cloud AI repair initiated.")
 
     return AIRepairResponse(status="success", message="Local AI repair initiated.")
+
 
 @router.get("/stats")
 async def get_stats(db: AsyncSession = Depends(get_db)):

@@ -8,7 +8,7 @@ app = FastAPI(title="Kintsugi-DAM API")
 # Configure CORS
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"], # In production, restrict this
+    allow_origins=["*"],  # In production, restrict this
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -16,6 +16,7 @@ app.add_middleware(
 
 app.include_router(api_router, prefix="/api")
 app.include_router(license_router, prefix="/api/license")
+
 
 @app.get("/")
 async def root():

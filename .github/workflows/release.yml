@@ -1,0 +1,63 @@
+name: Build and Publish Kintsugi-DAM
+
+on:
+  push:
+    branches: [ "main" ]
+  workflow_dispatch:
+
+# 1. DROP ALL DEFAULT PERMISSIONS GLOBALLY
+permissions: {}
+
+jobs:
+  build-and-push:
+    runs-on: [self-hosted, linux, x64]
+    environment: production
+    
+    # 2. GRANT ONLY REQUIRED PERMISSIONS TO THIS JOB
+    permissions:
+      contents: write   # Required to create the GitHub Release
+      packages: write   # Required to push the Docker image to GHCR
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Log in to the Container registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GHCR_PAT }}
+
+      - name: Determine Docker Tags
+        id: extract_tags
+        env:
+          COMMIT_MSG: ${{ github.event.head_commit.message }}
+        run: |
+          BASE_IMAGE="ghcr.io/${{ github.repository_owner }}/kintsugi-dam"
+          
+          if echo "$COMMIT_MSG" | grep -qiE 'version:\s*v[0-9]+\.[0-9]+\.[0-9]+'; then
+            EXTRACTED_VERSION=$(echo "$COMMIT_MSG" | grep -ioE 'version:\s*v[0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z0-9.]+)?' | head -n 1 | sed -E 's/version:\s*//i')
+            TAGS="$BASE_IMAGE:$EXTRACTED_VERSION,$BASE_IMAGE:latest"
+            echo "version=$EXTRACTED_VERSION" >> $GITHUB_OUTPUT
+          else
+            TAGS="$BASE_IMAGE:beta"
+            echo "No explicit version found. Building 'beta' only."
+          fi
+          echo "tags=$TAGS" >> $GITHUB_OUTPUT
+
+      # 3. BUILD THE SINGLE UNIFIED CONTAINER
+      - name: Build and push Monolith Image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          tags: ${{ steps.extract_tags.outputs.tags }}
+
+      - name: Create GitHub Release
+        if: steps.extract_tags.outputs.version != ''
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.extract_tags.outputs.version }}
+          name: Release ${{ steps.extract_tags.outputs.version }}
+          body: ${{ github.event.head_commit.message }}

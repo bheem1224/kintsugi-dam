@@ -1,25 +1,13 @@
 services:
-  backend:
+  kintsugi:
     build:
-      context: ./backend
+      context: .
       dockerfile: Dockerfile
-    container_name: kintsugi_backend
+    container_name: kintsugi-dam
     ports:
-      - "8000:8000"
+      - "3000:3000" # Frontend UI
+      - "8000:8000" # Backend API
     volumes:
-      - ./data:/app/data
-      - /path/to/user/media:/media:ro
-    restart: unless-stopped
-
-  frontend:
-    build:
-      context: ./frontend
-      dockerfile: Dockerfile
-    container_name: kintsugi_frontend
-    ports:
-      - "3000:3000"
-    environment:
-      - NEXT_PUBLIC_API_URL=http://localhost:8000
-    depends_on:
-      - backend
+      - ./backend/data:/app/backend/data
+      - /path/to/user/media:/media:rw
     restart: unless-stopped

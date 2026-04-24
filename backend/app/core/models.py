@@ -6,19 +6,23 @@ from sqlalchemy.orm import Mapped, mapped_column
 
 from .database import Base
 
+
 class MediaFile(Base):
-    __tablename__ = 'media_files'
+    __tablename__ = "media_files"
 
     id: Mapped[int] = mapped_column(primary_key=True)
     filepath: Mapped[str] = mapped_column(String, unique=True, index=True)
     mtime: Mapped[float] = mapped_column(Float)
     size: Mapped[int] = mapped_column(Integer)
     sha256_hash: Mapped[Optional[str]] = mapped_column(String, nullable=True)
-    last_hashed_date: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
-    state: Mapped[str] = mapped_column(String, default='clean')
+    last_hashed_date: Mapped[Optional[datetime]] = mapped_column(
+        DateTime, nullable=True
+    )
+    state: Mapped[str] = mapped_column(String, default="clean")
+
 
 class PluginConfig(Base):
-    __tablename__ = 'plugin_configs'
+    __tablename__ = "plugin_configs"
 
     id: Mapped[int] = mapped_column(primary_key=True)
     name: Mapped[str] = mapped_column(String, unique=True)
@@ -26,8 +30,9 @@ class PluginConfig(Base):
     is_active: Mapped[bool] = mapped_column(Boolean, default=False)
     priority: Mapped[int] = mapped_column(Integer)
 
+
 class ScanHistory(Base):
-    __tablename__ = 'scan_history'
+    __tablename__ = "scan_history"
 
     id: Mapped[int] = mapped_column(primary_key=True)
     scan_date: Mapped[datetime] = mapped_column(DateTime)
@@ -37,10 +42,27 @@ class ScanHistory(Base):
 
 
 class SystemSettings(Base):
-    __tablename__ = 'system_settings'
+    __tablename__ = "system_settings"
 
     id: Mapped[int] = mapped_column(primary_key=True)
     discord_webhook_url: Mapped[Optional[str]] = mapped_column(String, nullable=True)
     ntfy_topic_url: Mapped[Optional[str]] = mapped_column(String, nullable=True)
     consensus_threshold: Mapped[int] = mapped_column(Integer, default=2)
     cloud_credits: Mapped[int] = mapped_column(Integer, default=0)
+    maintenance_start: Mapped[str] = mapped_column(String, default="01:00")
+    maintenance_end: Mapped[str] = mapped_column(String, default="05:00")
+    monitored_directory: Mapped[str] = mapped_column(String, default="/media")
+    auto_restore: Mapped[bool] = mapped_column(Boolean, default=False)
+    auto_repair: Mapped[bool] = mapped_column(Boolean, default=False)
+    retention_days: Mapped[int] = mapped_column(Integer, default=90)
+    snapshot_mount_path: Mapped[str] = mapped_column(String, default="/snapshots")
+
+class User(Base):
+    __tablename__ = "users"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    username: Mapped[str] = mapped_column(String, unique=True, index=True)
+    email: Mapped[str] = mapped_column(String, unique=True, index=True)
+    hashed_password: Mapped[str] = mapped_column(String)
+    role: Mapped[str] = mapped_column(String, default="user")
+    license_key: Mapped[Optional[str]] = mapped_column(String, nullable=True)

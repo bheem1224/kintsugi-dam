@@ -49,3 +49,20 @@ class SystemSettings(Base):
     ntfy_topic_url: Mapped[Optional[str]] = mapped_column(String, nullable=True)
     consensus_threshold: Mapped[int] = mapped_column(Integer, default=2)
     cloud_credits: Mapped[int] = mapped_column(Integer, default=0)
+    maintenance_start: Mapped[str] = mapped_column(String, default="01:00")
+    maintenance_end: Mapped[str] = mapped_column(String, default="05:00")
+    monitored_directory: Mapped[str] = mapped_column(String, default="/media")
+    auto_restore: Mapped[bool] = mapped_column(Boolean, default=False)
+    auto_repair: Mapped[bool] = mapped_column(Boolean, default=False)
+    retention_days: Mapped[int] = mapped_column(Integer, default=90)
+    snapshot_mount_path: Mapped[str] = mapped_column(String, default="/snapshots")
+
+class User(Base):
+    __tablename__ = "users"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    username: Mapped[str] = mapped_column(String, unique=True, index=True)
+    email: Mapped[str] = mapped_column(String, unique=True, index=True)
+    hashed_password: Mapped[str] = mapped_column(String)
+    role: Mapped[str] = mapped_column(String, default="user")
+    license_key: Mapped[Optional[str]] = mapped_column(String, nullable=True)

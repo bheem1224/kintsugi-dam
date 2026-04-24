@@ -31,7 +31,7 @@
 }
 
 body {
-  background: hsl(var(--background));
+  background: radial-gradient(circle at center top, #1a1a1a 0%, hsl(var(--background)) 70%); background-attachment: fixed;
   color: hsl(var(--foreground));
   font-family: var(--font-sans), sans-serif;
 }

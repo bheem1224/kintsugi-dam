@@ -12,6 +12,18 @@ export function Sidebar() {
           Dashboard
         </Link>
         <Link
+          href="/browser"
+          className="text-muted-foreground hover:text-foreground hover:bg-muted px-2 py-1.5 rounded-md transition-colors"
+        >
+          File Browser
+        </Link>
+        <Link
+          href="/triage"
+          className="text-muted-foreground hover:text-foreground hover:bg-muted px-2 py-1.5 rounded-md transition-colors"
+        >
+          Triage Gallery
+        </Link>
+        <Link
           href="/settings"
           className="text-muted-foreground hover:text-foreground hover:bg-muted px-2 py-1.5 rounded-md transition-colors"
         >

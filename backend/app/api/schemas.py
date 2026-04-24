@@ -6,6 +6,10 @@ from datetime import datetime
 class WebhookConfig(BaseModel):
     discord_webhook_url: Optional[str] = None
     ntfy_topic_url: Optional[str] = None
+    auto_restore: Optional[bool] = None
+    auto_repair: Optional[bool] = None
+    retention_days: Optional[int] = None
+    snapshot_mount_path: Optional[str] = None
 
 
 class ContextPickerRequest(BaseModel):
@@ -44,3 +48,16 @@ class AIRepairRequest(BaseModel):
 class AIRepairResponse(BaseModel):
     status: str
     message: str
+
+
+class SettingsUpdateRequest(BaseModel):
+    maintenance_start: Optional[str] = None
+    maintenance_end: Optional[str] = None
+    monitored_directory: Optional[str] = None
+    plugins: Optional[dict[str, bool]] = None
+    discord_webhook_url: Optional[str] = None
+    ntfy_topic_url: Optional[str] = None
+    auto_restore: Optional[bool] = None
+    auto_repair: Optional[bool] = None
+    retention_days: Optional[int] = None
+    snapshot_mount_path: Optional[str] = None

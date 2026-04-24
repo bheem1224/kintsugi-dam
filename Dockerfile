@@ -26,8 +26,14 @@ RUN apt-get update && apt-get install -y curl \
 WORKDIR /app/backend
 COPY backend/pyproject.toml ./
 # Install 'uv' and dependencies
-RUN pip install uv && uv pip install --system -r pyproject.toml
-COPY backend/ ./
+RUN apt-get update && apt-get install -y \
+    curl \
+    imagemagick \
+    jpeginfo \
+    exiftool \
+    && curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
+    && apt-get install -y nodejs \
+    && rm -rf /var/lib/apt/lists/*
 
 # Bring in the compiled Frontend from Stage 1
 WORKDIR /app/frontend

@@ -30,7 +30,7 @@ export function ProUpsellModal({ featureName, onClose }: ProUpsellModalProps) {
     setSuccess("");
 
     try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/api/license/activate`, {
+      const res = await fetch(`/api/license/activate`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

@@ -33,7 +33,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (storedToken) {
         setToken(storedToken);
         try {
-          const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/api/auth/me`, {
+          const res = await fetch(`/api/auth/me`, {
             headers: {
               "Authorization": `Bearer ${storedToken}`
             }
@@ -68,7 +68,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     localStorage.setItem("token", newToken);
     setToken(newToken);
     try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/api/auth/me`, {
+      const res = await fetch(`/api/auth/me`, {
         headers: {
           "Authorization": `Bearer ${newToken}`
         }

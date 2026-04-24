@@ -54,7 +54,7 @@ export default function BrowserPage() {
     if (!token) return
     setLoading(true)
     try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/api/fs/browse?path=${encodeURIComponent(path)}`, {
+      const res = await fetch(`/api/fs/browse?path=${encodeURIComponent(path)}`, {
         headers: {
           "Authorization": `Bearer ${token}`
         }
@@ -88,7 +88,7 @@ export default function BrowserPage() {
   const handleScan = async (path: string) => {
     setScanLoading(path)
     try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/api/fs/scan`, {
+      const res = await fetch(`/api/fs/scan`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

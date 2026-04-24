@@ -29,7 +29,7 @@ export function SystemProvider({ children }: { children: React.ReactNode }) {
   const fetchStats = async () => {
     try {
       if (!token) return;
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/api/stats`, {
+      const res = await fetch(`/api/stats`, {
         headers: {
           "Authorization": `Bearer ${token}`
         }

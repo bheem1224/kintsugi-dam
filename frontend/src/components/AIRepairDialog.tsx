@@ -30,7 +30,7 @@ export function AIRepairDialog({ file, onClose }: AIRepairDialogProps) {
 
   const handleActivateLicense = async () => {
     try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/api/license/activate`, {
+      const res = await fetch(`/api/license/activate`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ license_key: licenseKey })
@@ -51,7 +51,7 @@ export function AIRepairDialog({ file, onClose }: AIRepairDialogProps) {
     setMessage("")
     try {
       const provider = useCloud ? "cloud" : "local"
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/api/files/${file.id}/repair/ai`, {
+      const res = await fetch(`/api/files/${file.id}/repair/ai`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ context_file_ids: contextFiles, provider })

@@ -3,6 +3,7 @@ from apscheduler.schedulers.asyncio import AsyncIOScheduler
 
 from .scanner import run_scan
 from .database import async_session_maker
+from app.tasks.prune import prune_triage_bin
 
 
 def start_scheduler(
@@ -23,6 +24,15 @@ def start_scheduler(
     # Schedule the job to run daily at the specified start_time
     scheduler.add_job(
         _run_scan_job, "cron", hour=start_time.hour, minute=start_time.minute
+    )
+
+    async def _run_prune_job():
+        async with async_session_maker() as session:
+            await prune_triage_bin(session)
+
+    # Run at 3:00 AM daily
+    scheduler.add_job(
+        _run_prune_job, "cron", hour=3, minute=0
     )
 
     scheduler.start()

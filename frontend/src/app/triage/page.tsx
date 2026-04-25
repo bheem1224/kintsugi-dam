@@ -29,7 +29,7 @@ export default function TriageGallery() {
     async function fetchCorrupted() {
       try {
         if (!token) return;
-        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/api/files/corrupted`, {
+        const res = await fetch(`/api/files/corrupted`, {
           headers: {
             "Authorization": `Bearer ${token}`
           }

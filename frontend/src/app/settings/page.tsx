@@ -37,7 +37,7 @@ export default function SettingsPage() {
     async function fetchSettings() {
       try {
         if (!token) return;
-        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/api/settings`, {
+        const res = await fetch(`/api/settings`, {
           headers: {
             "Authorization": `Bearer ${token}`
           }
@@ -73,7 +73,7 @@ export default function SettingsPage() {
     setSaving(true)
     
     try {
-      await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/api/settings`, {
+      await fetch(`/api/settings`, {
         method: "POST",
         headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
         body: JSON.stringify({
@@ -103,7 +103,7 @@ export default function SettingsPage() {
     setPlugins(updatedPlugins)
 
     // Auto-save plugins when toggled
-    fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/api/settings`, {
+    fetch(`/api/settings`, {
       method: "POST",
       headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
       body: JSON.stringify({ plugins: updatedPlugins })

@@ -3,6 +3,7 @@ from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from pydantic import BaseModel
+from typing import Dict, Any
 
 from ..core.database import get_db
 from ..core.models import User
@@ -24,8 +25,20 @@ class UserProfile(BaseModel):
     email: str
     is_pro: bool
 
+
+@router.get("/status", response_model=Dict[str, bool])
+async def get_status(db: AsyncSession = Depends(get_db)):
+    result = await db.execute(select(User).limit(1))
+    user = result.scalars().first()
+    return {"setup_required": user is None}
+
 @router.post("/register", response_model=Token)
 async def register(user: UserCreate, db: AsyncSession = Depends(get_db)):
+    # Check if any user already exists
+    any_user_result = await db.execute(select(User).limit(1))
+    if any_user_result.scalars().first():
+        raise HTTPException(status_code=403, detail="Registration is disabled. Initial setup is already complete.")
+
     result = await db.execute(
         select(User).where((User.username == user.username) | (User.email == user.email))
     )

@@ -32,8 +32,8 @@ async def prune_triage_bin(db_session: AsyncSession) -> None:
     cutoff_time = time.time() - (retention_days * 86400) # 86400 seconds in a day
 
     triage_dirs = [
-        os.path.abspath("data/triage/corrupted"),
-        os.path.abspath("data/triage/restored")
+        os.path.abspath("/app/data/triage/corrupted"),
+        os.path.abspath("/app/data/triage/restored")
     ]
 
     files_deleted = 0

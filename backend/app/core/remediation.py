@@ -21,8 +21,8 @@ async def remediate_from_snapshot(
     base_media = os.path.abspath("/media")
     abs_file_path = os.path.abspath(file_path)
 
-    corrupted_dir = os.path.abspath("data/triage/corrupted")
-    restored_dir = os.path.abspath("data/triage/restored")
+    corrupted_dir = os.path.abspath("/app/data/triage/corrupted")
+    restored_dir = os.path.abspath("/app/data/triage/restored")
 
     os.makedirs(corrupted_dir, exist_ok=True)
     os.makedirs(restored_dir, exist_ok=True)

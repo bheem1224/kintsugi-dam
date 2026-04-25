@@ -5,12 +5,13 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_asyn
 from sqlalchemy.orm import DeclarativeBase
 
 # Hardcoded SQLite database URL as requested
-DATABASE_URL = "sqlite+aiosqlite:///data/kintsugi.db"
+DATABASE_URL = "sqlite+aiosqlite:////app/data/kintsugi.db"
 
 # Create the asynchronous engine
 engine = create_async_engine(
     DATABASE_URL,
     echo=False,
+    connect_args={"check_same_thread": False}
 )
 
 

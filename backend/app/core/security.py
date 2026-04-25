@@ -1,5 +1,6 @@
 import os
 import secrets
+import json
 from datetime import datetime, timedelta
 from typing import Optional
 
@@ -15,8 +16,22 @@ from .models import User
 
 # JWT Config
 JWT_SECRET_KEY = os.environ.get("JWT_SECRET_KEY")
+SECRET_FILE = "/app/data/jwt_secret.json"
+
 if not JWT_SECRET_KEY:
-    JWT_SECRET_KEY = secrets.token_urlsafe(32)
+    if os.path.exists(SECRET_FILE):
+        try:
+            with open(SECRET_FILE, "r") as f:
+                data = json.load(f)
+                JWT_SECRET_KEY = data.get("secret")
+        except Exception:
+            pass
+
+    if not JWT_SECRET_KEY:
+        JWT_SECRET_KEY = secrets.token_urlsafe(32)
+        os.makedirs(os.path.dirname(SECRET_FILE), exist_ok=True)
+        with open(SECRET_FILE, "w") as f:
+            json.dump({"secret": JWT_SECRET_KEY}, f)
 
 JWT_ALGORITHM = os.environ.get("JWT_ALGORITHM", "HS256")
 ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24 * 7 # 7 days

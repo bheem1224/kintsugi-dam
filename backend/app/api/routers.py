@@ -175,7 +175,7 @@ async def browse_fs(path: str = "/media", current_user: User = Depends(get_curre
     base_dir = os.path.abspath("/media")
     target_dir = os.path.abspath(path)
 
-    if not target_dir.startswith(base_dir):
+    if os.path.commonpath([base_dir, target_dir]) != base_dir:
         raise HTTPException(status_code=403, detail="Directory traversal attempt blocked.")
 
     if not os.path.exists(target_dir) or not os.path.isdir(target_dir):
@@ -216,7 +216,7 @@ async def scan_fs(
     base_dir = os.path.abspath("/media")
     target_dir = os.path.abspath(req.path)
 
-    if not target_dir.startswith(base_dir):
+    if os.path.commonpath([base_dir, target_dir]) != base_dir:
         raise HTTPException(status_code=403, detail="Directory traversal attempt blocked.")
 
     if not os.path.exists(target_dir) or not os.path.isdir(target_dir):

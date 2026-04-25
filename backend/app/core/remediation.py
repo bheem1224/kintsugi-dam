@@ -28,7 +28,7 @@ async def remediate_from_snapshot(
     os.makedirs(restored_dir, exist_ok=True)
 
     # Verify the file is actually within the managed media directory
-    if not abs_file_path.startswith(base_media):
+    if os.path.commonpath([base_media, abs_file_path]) != base_media:
         return False, "File is not within the managed /media directory."
 
     filename = os.path.basename(abs_file_path)

@@ -11,7 +11,7 @@ DATABASE_URL = "sqlite+aiosqlite:////app/data/kintsugi.db"
 engine = create_async_engine(
     DATABASE_URL,
     echo=False,
-    connect_args={"check_same_thread": False}
+    connect_args={"check_same_thread": False, "timeout": 15.0}
 )
 
 

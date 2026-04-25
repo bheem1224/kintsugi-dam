@@ -9,6 +9,8 @@ class JpegInfoDetector(DetectorProvider):
 
     async def analyze(self, file_path: str) -> Tuple[bool, str]:
         try:
+            # Command arguments are passed as a list to create_subprocess_exec.
+            # shell=True is NOT used. This prevents command injection.
             process = await asyncio.create_subprocess_exec(
                 "jpeginfo",
                 "-c",

@@ -3,7 +3,6 @@ from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from pydantic import BaseModel
-from typing import Dict, Any
 
 from ..core.database import get_db
 from ..core.models import User
@@ -25,26 +24,23 @@ class UserProfile(BaseModel):
     email: str
     is_pro: bool
 
-
-@router.get("/status", response_model=Dict[str, bool])
-async def get_status(db: AsyncSession = Depends(get_db)):
+@router.get("/status")
+async def get_system_status(db: AsyncSession = Depends(get_db)):
     result = await db.execute(select(User).limit(1))
-    user = result.scalars().first()
-    return {"setup_required": user is None}
+    user_exists = result.scalars().first() is not None
+    return {"setup_required": not user_exists}
 
 @router.post("/register", response_model=Token)
 async def register(user: UserCreate, db: AsyncSession = Depends(get_db)):
-    # Check if any user already exists
-    any_user_result = await db.execute(select(User).limit(1))
-    if any_user_result.scalars().first():
-        raise HTTPException(status_code=403, detail="Registration is disabled. Initial setup is already complete.")
+    # SECURITY LOCK: Check if ANY user already exists in the database
+    check_users = await db.execute(select(User).limit(1))
+    if check_users.scalars().first():
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Initial setup is already complete. Self-registration is disabled."
+        )
 
-    result = await db.execute(
-        select(User).where((User.username == user.username) | (User.email == user.email))
-    )
-    if result.scalars().first():
-        raise HTTPException(status_code=400, detail="Username or email already registered")
-
+    # Proceed with registration (this will only successfully execute once)
     hashed_password = get_password_hash(user.password)
     new_user = User(
         username=user.username,

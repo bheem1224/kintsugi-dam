@@ -1,6 +1,7 @@
 "use client"
 
 import * as React from "react"
+import { useDebounce } from "use-debounce"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Label } from "@/components/ui/label"
 import { Switch } from "@/components/ui/switch"
@@ -8,12 +9,16 @@ import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { useSystem } from "@/context/SystemContext"
 import { useAuth } from "@/context/AuthContext"
-import { ProUpsellModal } from "@/components/modals/ProUpsellModal"
+import { useToast } from "@/hooks/use-toast"
+
 import { Plus } from "lucide-react"
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 
 export default function SettingsPage() {
   const { stats, refreshStats } = useSystem()
+  const { user } = useAuth()
   const { token } = useAuth()
+  const { toast } = useToast()
   const [activeTab, setActiveTab] = React.useState("general")
   const [saving, setSaving] = React.useState(false)
 
@@ -29,10 +34,20 @@ export default function SettingsPage() {
     discord: "",
     ntfy: ""
   })
-  const [plugins, setPlugins] = React.useState<Record<string, boolean>>({})
-  const [showUpsellModal, setShowUpsellModal] = React.useState(false)
+  const [plugins, setPlugins] = React.useState<Record<string, { is_enabled: boolean }>>({})
+
 
   // Fetch initial settings
+  const [debouncedMaintenanceStart] = useDebounce(maintenanceStart, 2000)
+  const [debouncedMaintenanceEnd] = useDebounce(maintenanceEnd, 2000)
+  const [debouncedMonitoredDirectory] = useDebounce(monitoredDirectory, 2000)
+  const [debouncedSnapshotPath] = useDebounce(snapshotPath, 2000)
+  const [debouncedRetentionDays] = useDebounce(retentionDays, 2000)
+  const [debouncedWebhookUrls] = useDebounce(webhookUrls, 2000)
+
+  // Track if initial load is done so we don't overwrite settings immediately
+  const [initialLoadDone, setInitialLoadDone] = React.useState(false)
+
   React.useEffect(() => {
     async function fetchSettings() {
       try {
@@ -45,8 +60,8 @@ export default function SettingsPage() {
         if (res.ok) {
           const data = await res.json()
           if (data.settings) {
-            setMaintenanceStart(data.settings.maintenance_start || "01:00")
-            setMaintenanceEnd(data.settings.maintenance_end || "05:00")
+            setMaintenanceStart(data.settings.maintenance_start || "02:00")
+            setMaintenanceEnd(data.settings.maintenance_end || "06:00")
             setMonitoredDirectory(data.settings.monitored_directory || "/media")
             setSnapshotPath(data.settings.snapshot_mount_path || "/snapshots")
             setAutoRestore(data.settings.auto_restore || false)
@@ -58,8 +73,17 @@ export default function SettingsPage() {
             })
           }
           if (data.plugins) {
-            setPlugins(data.plugins)
+            const formattedPlugins: Record<string, { is_enabled: boolean }> = {};
+            for (const [key, value] of Object.entries(data.plugins)) {
+              if (typeof value === 'boolean') {
+                formattedPlugins[key] = { is_enabled: value };
+              } else {
+                formattedPlugins[key] = value as { is_enabled: boolean };
+              }
+            }
+            setPlugins(formattedPlugins)
           }
+          setInitialLoadDone(true)
         }
       } catch (error) {
         console.error("Failed to fetch settings:", error)
@@ -67,6 +91,11 @@ export default function SettingsPage() {
     }
     fetchSettings()
   }, [token])
+
+  React.useEffect(() => {
+    if (!initialLoadDone) return;
+    handleSaveSettings();
+  }, [debouncedMaintenanceStart, debouncedMaintenanceEnd, debouncedMonitoredDirectory, debouncedSnapshotPath, autoRestore, autoRepair, debouncedRetentionDays, debouncedWebhookUrls, plugins])
 
   const handleSaveSettings = async (e?: React.FormEvent) => {
     if (e) e.preventDefault()
@@ -99,7 +128,11 @@ export default function SettingsPage() {
   }
 
   const togglePlugin = (name: string) => {
-    const updatedPlugins = { ...plugins, [name]: !plugins[name] }
+    const currentPlugin = plugins[name] || { is_enabled: false };
+    const updatedPlugins = {
+      ...plugins,
+      [name]: { ...currentPlugin, is_enabled: !currentPlugin.is_enabled }
+    }
     setPlugins(updatedPlugins)
 
     // Auto-save plugins when toggled
@@ -109,6 +142,8 @@ export default function SettingsPage() {
       body: JSON.stringify({ plugins: updatedPlugins })
     }).catch(console.error)
   }
+
+  const isPro = user?.is_pro === true
 
   return (
     <div className="max-w-4xl mx-auto space-y-8">
@@ -163,13 +198,29 @@ export default function SettingsPage() {
                   </p>
                 </div>
                 <div className="flex items-center gap-4">
-                  <Button onClick={() => handleSaveSettings()} disabled={saving}>
-                    {saving ? "Saving..." : "Save Configuration"}
-                  </Button>
-                  <Button variant="outline" onClick={() => setShowUpsellModal(true)}>
-                    <Plus className="w-4 h-4 mr-2" />
-                    Add Another Monitored Directory
-                  </Button>
+
+                  {!isPro ? (
+    <TooltipProvider delay={100}>
+      <Tooltip>
+        <TooltipTrigger>
+          <span className="inline-block cursor-not-allowed">
+            <Button variant="outline" disabled className="pointer-events-none">
+              <Plus className="w-4 h-4 mr-2" />
+              Add Another Monitored Directory
+            </Button>
+          </span>
+        </TooltipTrigger>
+        <TooltipContent>
+          <p>Available with Kintsugi Pro.</p>
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
+  ) : (
+    <Button variant="outline">
+      <Plus className="w-4 h-4 mr-2" />
+      Add Another Monitored Directory
+    </Button>
+  )}
                 </div>
               </CardContent>
             </Card>
@@ -202,9 +253,7 @@ export default function SettingsPage() {
                     />
                   </div>
                 </div>
-                <Button onClick={() => handleSaveSettings()} disabled={saving}>
-                  {saving ? "Saving..." : "Save Window"}
-                </Button>
+
               </CardContent>
             </Card>
 
@@ -231,24 +280,56 @@ export default function SettingsPage() {
 
                 <div className="flex items-center justify-between py-2">
                   <div className="space-y-0.5">
-                    <Label className="text-base">Auto-Restore from Snapshots</Label>
+                    <Label htmlFor="auto-restore" className="text-base cursor-pointer">Auto-Restore from Snapshots</Label>
                     <p className="text-sm text-muted-foreground">Automatically overwrite corrupted files in the live directory if a clean snapshot is found.</p>
                   </div>
-                  <Switch
-                    checked={autoRestore}
-                    onCheckedChange={setAutoRestore}
-                  />
+                  {!isPro ? (
+    <TooltipProvider delay={100}>
+      <Tooltip>
+        <TooltipTrigger>
+          <span className="inline-block cursor-not-allowed">
+            <Switch checked={false} disabled className="pointer-events-none" />
+          </span>
+        </TooltipTrigger>
+        <TooltipContent>
+          <p>Available with Kintsugi Pro.</p>
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
+  ) : (
+    <Switch
+      id="auto-restore"
+      checked={autoRestore}
+      onCheckedChange={setAutoRestore}
+    />
+  )}
                 </div>
 
                 <div className="flex items-center justify-between py-2">
                   <div className="space-y-0.5">
-                    <Label className="text-base">Auto-Repair with AI</Label>
+                    <Label htmlFor="auto-repair" className="text-base cursor-pointer">Auto-Repair with AI</Label>
                     <p className="text-sm text-muted-foreground">Automatically send irrecoverable files to the Cloud Gateway for AI reconstruction (consumes credits).</p>
                   </div>
-                  <Switch
-                    checked={autoRepair}
-                    onCheckedChange={setAutoRepair}
-                  />
+                  {!isPro ? (
+    <TooltipProvider delay={100}>
+      <Tooltip>
+        <TooltipTrigger>
+          <span className="inline-block cursor-not-allowed">
+            <Switch checked={false} disabled className="pointer-events-none" />
+          </span>
+        </TooltipTrigger>
+        <TooltipContent>
+          <p>Available with Kintsugi Pro.</p>
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
+  ) : (
+    <Switch
+      id="auto-repair"
+      checked={autoRepair}
+      onCheckedChange={setAutoRepair}
+    />
+  )}
                 </div>
 
                 <div className="space-y-2 pt-2">
@@ -264,9 +345,7 @@ export default function SettingsPage() {
                   </p>
                 </div>
 
-                <Button onClick={() => handleSaveSettings()} disabled={saving}>
-                  {saving ? "Saving..." : "Save Remediation Settings"}
-                </Button>
+
               </CardContent>
             </Card>
 
@@ -279,7 +358,7 @@ export default function SettingsPage() {
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                <form onSubmit={handleSaveSettings} className="space-y-4">
+                <div className="space-y-4">
                   <div className="grid gap-2">
                     <Label htmlFor="discord">Discord Webhook URL</Label>
                     <Input
@@ -298,10 +377,8 @@ export default function SettingsPage() {
                       onChange={(e) => setWebhookUrls({...webhookUrls, ntfy: e.target.value})}
                     />
                   </div>
-                  <Button type="submit" disabled={saving}>
-                    {saving ? "Saving..." : "Save Notifications"}
-                  </Button>
-                </form>
+
+                </div>
               </CardContent>
             </Card>
           </div>
@@ -323,7 +400,7 @@ export default function SettingsPage() {
                     <div className="text-sm text-muted-foreground">High-speed primary detector leveraging deep Huffman boundary scanning.</div>
                   </div>
                   <Switch
-                    checked={plugins["JpegInfo"] ?? false}
+                    checked={plugins["JpegInfo"]?.is_enabled ?? false}
                     onCheckedChange={() => togglePlugin("JpegInfo")}
                   />
                 </div>
@@ -333,7 +410,7 @@ export default function SettingsPage() {
                     <div className="text-sm text-muted-foreground">Secondary consensus fallback verifying structural integrity by fully decompressing images into RAM.</div>
                   </div>
                   <Switch
-                    checked={plugins["Pillow Deep Scan"] ?? false}
+                    checked={plugins["Pillow Deep Scan"]?.is_enabled ?? false}
                     onCheckedChange={() => togglePlugin("Pillow Deep Scan")}
                   />
                 </div>
@@ -392,12 +469,7 @@ export default function SettingsPage() {
           </div>
         )}
       </div>
-          {showUpsellModal && (
-        <ProUpsellModal
-          featureName="Multi-Directory Monitoring"
-          onClose={() => setShowUpsellModal(false)}
-        />
-      )}
+
     </div>
   )
 }

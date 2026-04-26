@@ -2,10 +2,11 @@
 
 import * as React from "react"
 import { useAuth } from "@/context/AuthContext"
-import { ProUpsellModal } from "@/components/modals/ProUpsellModal"
+
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Folder, Image as ImageIcon, ChevronRight, Scan } from "lucide-react"
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import { useToast } from "@/hooks/use-toast"
 
 type FSItem = {
@@ -137,7 +138,10 @@ export default function BrowserPage() {
         </p>
       </div>
 
-      <div className={`transition-all duration-500 ${!isPro ? "blur-md pointer-events-none opacity-50" : ""}`}>
+      <TooltipProvider delay={100}>
+  <Tooltip>
+    <TooltipTrigger>
+      <div className={`transition-all duration-500 ${!isPro ? "pointer-events-none opacity-50" : ""}`}>
         <Card>
           <CardHeader className="bg-muted/30 border-b border-border flex flex-row items-center gap-2 p-4 cursor-pointer select-none" onClick={handleBreadcrumbClick}>
             <div className="font-mono text-sm text-muted-foreground bg-muted px-2 py-1 rounded">
@@ -186,10 +190,16 @@ export default function BrowserPage() {
           </CardContent>
         </Card>
       </div>
+    </TooltipTrigger>
+    {!isPro && (
+      <TooltipContent>
+        <p>Available with Kintsugi Pro.</p>
+      </TooltipContent>
+    )}
+  </Tooltip>
+</TooltipProvider>
 
-      {!loading && !isPro && (
-        <ProUpsellModal featureName="Advanced File Browser" onClose={() => {}} />
-      )}
+
     </div>
   )
 }

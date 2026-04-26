@@ -4,6 +4,8 @@ import { Switch } from "@/components/ui/switch"
 import { Label } from "@/components/ui/label"
 import { Input } from "@/components/ui/input"
 import { Cpu, Cloud, AlertCircle, Key } from "lucide-react"
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
+import { useAuth } from "@/context/AuthContext"
 
 // Types matching the backend response
 type MediaFile = {
@@ -22,6 +24,8 @@ interface AIRepairDialogProps {
 }
 
 export function AIRepairDialog({ file, onClose }: AIRepairDialogProps) {
+  const { user } = useAuth()
+  const isPro = user?.is_pro === true
   const [useCloud, setUseCloud] = React.useState(false)
   const [licenseKey, setLicenseKey] = React.useState("")
   const [isRepairing, setIsRepairing] = React.useState(false)
@@ -94,11 +98,26 @@ export function AIRepairDialog({ file, onClose }: AIRepairDialogProps) {
                   Use advanced models. Consumes 1 Cloud Credit.
                 </p>
               </div>
-              <Switch
-                id="cloud-mode"
-                checked={useCloud}
-                onCheckedChange={setUseCloud}
-              />
+              {!isPro ? (
+    <TooltipProvider delay={100}>
+      <Tooltip>
+        <TooltipTrigger>
+          <span className="inline-block cursor-not-allowed">
+            <Switch id="cloud-mode" checked={false} disabled className="pointer-events-none" />
+          </span>
+        </TooltipTrigger>
+        <TooltipContent>
+          <p>Available with Kintsugi Pro.</p>
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
+  ) : (
+    <Switch
+      id="cloud-mode"
+      checked={useCloud}
+      onCheckedChange={setUseCloud}
+    />
+  )}
             </div>
 
             {useCloud && (

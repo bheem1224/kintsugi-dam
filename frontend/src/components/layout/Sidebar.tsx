@@ -1,9 +1,11 @@
 "use client"
+import React, { useState } from "react";
 
 import Link from 'next/link';
 import { useSystem } from "@/context/SystemContext"
 import { useAuth } from "@/context/AuthContext"
 import { Button } from "@/components/ui/button"
+import { ProUpsellModal } from "@/components/modals/ProUpsellModal"
 import { LogOut } from "lucide-react"
 import { usePathname } from 'next/navigation';
 
@@ -11,6 +13,7 @@ export function Sidebar() {
   const { stats } = useSystem();
   const { logout, user } = useAuth();
   const pathname = usePathname();
+  const [isUpsellOpen, setIsUpsellOpen] = useState(false);
 
   const isPro = user?.is_pro === true;
 
@@ -50,7 +53,10 @@ export function Sidebar() {
       <div className="flex flex-col gap-4">
         {!isPro && (
           <div className="px-2">
-            <Button className="w-full bg-primary/10 text-primary hover:bg-primary hover:text-black font-semibold border border-primary/20 transition-all">
+            <Button
+              className="w-full bg-primary/10 text-primary hover:bg-primary hover:text-black font-semibold border border-primary/20 transition-all"
+              onClick={() => setIsUpsellOpen(true)}
+            >
               Upgrade to Pro
             </Button>
           </div>
@@ -73,6 +79,12 @@ export function Sidebar() {
           </div>
         </div>
       </div>
+      {isUpsellOpen && (
+        <ProUpsellModal
+          featureName=""
+          onClose={() => setIsUpsellOpen(false)}
+        />
+      )}
     </aside>
   );
 }

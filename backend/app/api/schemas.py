@@ -7,7 +7,9 @@ class WebhookConfig(BaseModel):
     discord_webhook_url: Optional[str] = None
     ntfy_topic_url: Optional[str] = None
     auto_restore: Optional[bool] = None
-    auto_repair: Optional[bool] = None
+    auto_restore_cloud: Optional[bool] = None
+    auto_restore_ai: Optional[bool] = None
+    ai_use_kintsugi_cloud: Optional[bool] = None
     retention_days: Optional[int] = None
     snapshot_mount_path: Optional[str] = None
 
@@ -58,6 +60,8 @@ class SettingsUpdateRequest(BaseModel):
     discord_webhook_url: Optional[str] = None
     ntfy_topic_url: Optional[str] = None
     auto_restore: Optional[bool] = None
-    auto_repair: Optional[bool] = None
+    auto_restore_cloud: Optional[bool] = None
+    auto_restore_ai: Optional[bool] = None
+    ai_use_kintsugi_cloud: Optional[bool] = None
     retention_days: Optional[int] = None
     snapshot_mount_path: Optional[str] = None

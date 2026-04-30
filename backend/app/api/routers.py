@@ -129,8 +129,12 @@ async def update_settings(request: Request, settings_req: SettingsUpdateRequest,
         settings.ntfy_topic_url = settings_req.ntfy_topic_url
     if settings_req.auto_restore is not None:
         settings.auto_restore = settings_req.auto_restore
-    if settings_req.auto_repair is not None:
-        settings.auto_repair = settings_req.auto_repair
+    if settings_req.auto_restore_cloud is not None:
+        settings.auto_restore_cloud = settings_req.auto_restore_cloud
+    if settings_req.auto_restore_ai is not None:
+        settings.auto_restore_ai = settings_req.auto_restore_ai
+    if settings_req.ai_use_kintsugi_cloud is not None:
+        settings.ai_use_kintsugi_cloud = settings_req.ai_use_kintsugi_cloud
     if settings_req.retention_days is not None:
         settings.retention_days = settings_req.retention_days
     if settings_req.snapshot_mount_path is not None:

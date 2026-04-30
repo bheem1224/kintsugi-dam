@@ -53,7 +53,9 @@ class SystemSettings(Base):
     maintenance_end: Mapped[str] = mapped_column(String, default="05:00")
     monitored_directory: Mapped[str] = mapped_column(String, default="/media")
     auto_restore: Mapped[bool] = mapped_column(Boolean, default=False)
-    auto_repair: Mapped[bool] = mapped_column(Boolean, default=False)
+    auto_restore_cloud: Mapped[bool] = mapped_column(Boolean, default=False)
+    auto_restore_ai: Mapped[bool] = mapped_column(Boolean, default=False)
+    ai_use_kintsugi_cloud: Mapped[bool] = mapped_column(Boolean, default=True)
     retention_days: Mapped[int] = mapped_column(Integer, default=90)
     snapshot_mount_path: Mapped[str] = mapped_column(String, default="/snapshots")
 

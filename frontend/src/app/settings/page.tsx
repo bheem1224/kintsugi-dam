@@ -13,7 +13,7 @@ import { Plus } from "lucide-react"
 
 export default function SettingsPage() {
   const { stats, refreshStats } = useSystem()
-  const { token } = useAuth()
+  const { token, user } = useAuth()
   const [activeTab, setActiveTab] = React.useState("general")
   const [saving, setSaving] = React.useState(false)
 
@@ -23,7 +23,10 @@ export default function SettingsPage() {
   const [monitoredDirectory, setMonitoredDirectory] = React.useState("/media")
   const [snapshotPath, setSnapshotPath] = React.useState("/snapshots")
   const [autoRestore, setAutoRestore] = React.useState(false)
-  const [autoRepair, setAutoRepair] = React.useState(false)
+  const [autoRestoreCloud, setAutoRestoreCloud] = React.useState(false)
+  const [autoRestoreAI, setAutoRestoreAI] = React.useState(false)
+  const [aiUseKintsugiCloud, setAiUseKintsugiCloud] = React.useState(true)
+  const [upsellFeature, setUpsellFeature] = React.useState("")
   const [retentionDays, setRetentionDays] = React.useState("90")
   const [webhookUrls, setWebhookUrls] = React.useState({
     discord: "",
@@ -50,7 +53,9 @@ export default function SettingsPage() {
             setMonitoredDirectory(data.settings.monitored_directory || "/media")
             setSnapshotPath(data.settings.snapshot_mount_path || "/snapshots")
             setAutoRestore(data.settings.auto_restore || false)
-            setAutoRepair(data.settings.auto_repair || false)
+            setAutoRestoreCloud(data.settings.auto_restore_cloud || false)
+            setAutoRestoreAI(data.settings.auto_restore_ai || false)
+            setAiUseKintsugiCloud(data.settings.ai_use_kintsugi_cloud ?? true)
             setRetentionDays(data.settings.retention_days?.toString() || "90")
             setWebhookUrls({
               discord: data.settings.discord_webhook_url || "",
@@ -82,7 +87,9 @@ export default function SettingsPage() {
           monitored_directory: monitoredDirectory,
           snapshot_mount_path: snapshotPath,
           auto_restore: autoRestore,
-          auto_repair: autoRepair,
+          auto_restore_cloud: autoRestoreCloud,
+          auto_restore_ai: autoRestoreAI,
+          ai_use_kintsugi_cloud: aiUseKintsugiCloud,
           retention_days: parseInt(retentionDays, 10),
           discord_webhook_url: webhookUrls.discord || null,
           ntfy_topic_url: webhookUrls.ntfy || null,
@@ -242,13 +249,62 @@ export default function SettingsPage() {
 
                 <div className="flex items-center justify-between py-2">
                   <div className="space-y-0.5">
-                    <Label className="text-base">Auto-Repair with AI</Label>
-                    <p className="text-sm text-muted-foreground">Automatically send irrecoverable files to the Cloud Gateway for AI reconstruction (consumes credits).</p>
+                    <div className="flex items-center gap-2">
+                      <Label className="text-base">Auto-Restore from Cloud</Label>
+                      {!user?.is_pro && <span className="text-[10px] bg-primary/20 text-primary px-1.5 py-0.5 rounded font-bold uppercase tracking-wider">Pro</span>}
+                    </div>
+                    <p className="text-sm text-muted-foreground">Automatically retrieve healthy versions of files from Kintsugi Cloud storage.</p>
                   </div>
                   <Switch
-                    checked={autoRepair}
-                    onCheckedChange={setAutoRepair}
+                    checked={autoRestoreCloud}
+                    onCheckedChange={(checked) => {
+                      if (!user?.is_pro) {
+                        setUpsellFeature("Auto-Restore from Cloud");
+                        setShowUpsellModal(true);
+                        return;
+                      }
+                      setAutoRestoreCloud(checked);
+                    }}
                   />
+                </div>
+
+                <div className="space-y-4 py-2">
+                  <div className="flex items-center justify-between">
+                    <div className="space-y-0.5">
+                      <div className="flex items-center gap-2">
+                        <Label className="text-base">Auto-Restore with AI</Label>
+                        {!user?.is_pro && <span className="text-[10px] bg-primary/20 text-primary px-1.5 py-0.5 rounded font-bold uppercase tracking-wider">Pro</span>}
+                      </div>
+                      <p className="text-sm text-muted-foreground">Automatically reconstruct irrecoverable files using AI models.</p>
+                    </div>
+                    <Switch
+                      checked={autoRestoreAI}
+                      onCheckedChange={(checked) => {
+                        if (!user?.is_pro) {
+                          setUpsellFeature("Auto-Restore with AI");
+                          setShowUpsellModal(true);
+                          return;
+                        }
+                        setAutoRestoreAI(checked);
+                      }}
+                    />
+                  </div>
+                  
+                  {autoRestoreAI && (
+                    <div className="ml-6 pl-4 border-l-2 border-border space-y-4">
+                      <div className="flex items-center justify-between">
+                        <div className="space-y-0.5">
+                          <Label className="text-sm">Use Kintsugi Cloud AI</Label>
+                          <p className="text-xs text-muted-foreground">Offloads processing to high-performance cloud models (consumes credits). If disabled, uses local AI plugins.</p>
+                        </div>
+                        <Switch
+                          checked={aiUseKintsugiCloud}
+                          onCheckedChange={setAiUseKintsugiCloud}
+                          disabled={!user?.is_pro}
+                        />
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 <div className="space-y-2 pt-2">
@@ -394,8 +450,11 @@ export default function SettingsPage() {
       </div>
           {showUpsellModal && (
         <ProUpsellModal
-          featureName="Multi-Directory Monitoring"
-          onClose={() => setShowUpsellModal(false)}
+          featureName={upsellFeature || "Multi-Directory Monitoring"}
+          onClose={() => {
+            setShowUpsellModal(false);
+            setUpsellFeature("");
+          }}
         />
       )}
     </div>

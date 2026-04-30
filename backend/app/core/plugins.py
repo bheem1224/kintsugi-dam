@@ -1,4 +1,5 @@
 import os
+import pathlib
 import json
 import logging
 import wasmtime
@@ -29,6 +30,10 @@ class PluginManager:
                 logger.error("host_log failed: no memory exported")
                 return
             try:
+                mem_len = mem.data_len(caller)
+                if ptr < 0 or length < 0 or ptr + length > mem_len:
+                    logger.error("host_log memory access out of bounds")
+                    return
                 # `read` method args: store, start, stop
                 msg_bytes = mem.read(caller, ptr, ptr + length)
                 msg = msg_bytes.decode("utf-8", errors="replace")
@@ -51,12 +56,16 @@ class PluginManager:
                 return 0
 
             try:
+                mem_len = mem.data_len(caller)
+                if file_path_ptr < 0 or file_path_len < 0 or file_path_ptr + file_path_len > mem_len:
+                    logger.error("host_read_media_chunk memory access out of bounds")
+                    return 0
                 # `read` method args: store, start, stop
                 path_bytes = mem.read(caller, file_path_ptr, file_path_ptr + file_path_len)
                 file_path = path_bytes.decode("utf-8", errors="replace")
 
-                # Security check: strict resolution to /media/
-                resolved_path = os.path.abspath(file_path)
+                # Security check: strict resolution to /media/ using pathlib
+                resolved_path = str(pathlib.Path(file_path).resolve())
                 if not resolved_path.startswith("/media/"):
                     logger.error(f"Path traversal attempt blocked: {file_path}")
                     return 0
@@ -77,6 +86,12 @@ class PluginManager:
                 # Allocate space in WASM memory
                 # We need to call the WASM function
                 dest_ptr = alloc_func(caller, len(chunk_data))
+
+                # Validate destination pointer bounds
+                new_mem_len = mem.data_len(caller)
+                if dest_ptr < 0 or dest_ptr + len(chunk_data) > new_mem_len:
+                    logger.error("host_read_media_chunk alloc returned out of bounds pointer")
+                    return 0
 
                 # Write chunk to WASM memory
                 # write args: store, value, start

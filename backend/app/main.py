@@ -16,6 +16,8 @@ from .core.database import async_session_maker, engine, Base
 from .core.models import SystemSettings
 from sqlalchemy import select
 
+from .core.plugins import PluginManager
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Ensure database tables exist
@@ -27,6 +29,26 @@ async def lifespan(app: FastAPI):
         result = await session.execute(select(SystemSettings).where(SystemSettings.id == 1))
         settings = result.scalars().first()
         monitored_directory = settings.monitored_directory if settings else "/media"
+
+    booting_flag = "/app/data/booting.flag"
+    if os.path.exists(booting_flag):
+        logger.error("CRASH DETECTED: Booting in Safe Mode. All plugins disabled.")
+    else:
+        # Create booting flag
+        os.makedirs(os.path.dirname(booting_flag), exist_ok=True)
+        with open(booting_flag, "w") as f:
+            f.write("booting")
+
+        async with async_session_maker() as session:
+            plugin_manager = PluginManager(session)
+            await plugin_manager.initialize_plugins()
+            app.state.plugin_manager = plugin_manager
+
+        # Delete booting flag
+        try:
+            os.remove(booting_flag)
+        except OSError as e:
+            logger.warning(f"Could not remove booting flag: {e}")
 
     app.state.scheduler = start_scheduler(monitored_directory, time(1, 0), time(5, 0))
 

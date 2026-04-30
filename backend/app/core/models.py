@@ -68,3 +68,13 @@ class User(Base):
     hashed_password: Mapped[str] = mapped_column(String)
     role: Mapped[str] = mapped_column(String, default="user")
     license_key: Mapped[Optional[str]] = mapped_column(String, nullable=True)
+
+
+class Plugin(Base):
+    __tablename__ = "plugins"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    plugin_id: Mapped[str] = mapped_column(String, unique=True)
+    name: Mapped[str] = mapped_column(String)
+    version: Mapped[str] = mapped_column(String)
+    is_enabled: Mapped[bool] = mapped_column(Boolean, default=False)

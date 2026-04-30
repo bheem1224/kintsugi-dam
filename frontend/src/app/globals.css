@@ -1,37 +1,100 @@
 @import "tailwindcss";
 
 :root {
-  --background: 0 0% 0%; /* Pure black */
-  --foreground: 0 0% 100%;
-  --card: 240 5.9% 10%; /* Very dark gray */
-  --card-foreground: 0 0% 100%;
-  --primary: 160 84% 39%; /* Bright Mint Green */
-  --primary-foreground: 0 0% 100%;
-  --destructive: 0 84% 60%; /* Standard red */
-  --destructive-foreground: 0 0% 100%;
-  --muted: 240 3.7% 15.9%;
-  --muted-foreground: 240 5% 64.9%;
-  --border: 240 3.7% 15.9%;
+  color-scheme: dark;
+  /* Brand / Palette - Kintsugi Gold */
+  --color-primary: #fbbf24;
+  --color-primary-hover: #f59e0b;
+
+  --bg-main: #050508; /* very dark void */
+  --bg-sidebar: #0f1216;
+  --bg-card: #14181f;
+  --bg-input: #08080a;
+  --surface: rgba(10, 16, 30, 0.88);
+  --surface-hover: rgba(18, 32, 52, 0.92);
+
+  --text-main: #ffffff;
+  --text-muted: #64748b;
+
+  --border-subtle: rgba(255,255,255,0.08);
+  --error: #ff5252;
+  --success: var(--color-primary);
+
+  --shadow: 0 20px 60px rgba(0, 0, 0, 0.45);
+  --radius: 12px;
+
+  /* Component Aliases */
+  --card-bg: var(--bg-card);
+  --input-bg: var(--bg-input);
+  --text: var(--text-main);
+  --muted: var(--text-muted);
+  --border-color: var(--border-subtle);
+  --accent: var(--color-primary);
+  --glass: rgba(20, 24, 31, 0.7);
+  --glass-border: var(--border-subtle);
 }
 
 @theme inline {
-  --color-background: hsl(var(--background));
-  --color-foreground: hsl(var(--foreground));
-  --color-card: hsl(var(--card));
-  --color-card-foreground: hsl(var(--card-foreground));
-  --color-primary: hsl(var(--primary));
-  --color-primary-foreground: hsl(var(--primary-foreground));
-  --color-destructive: hsl(var(--destructive));
-  --color-destructive-foreground: hsl(var(--destructive-foreground));
-  --color-muted: hsl(var(--muted));
-  --color-muted-foreground: hsl(var(--muted-foreground));
-  --color-border: hsl(var(--border));
-  --font-sans: var(--font-geist-sans);
+  --color-background: var(--bg-main);
+  --color-foreground: var(--text-main);
+  --color-card: var(--bg-card);
+  --color-card-foreground: var(--text-main);
+  --color-primary: var(--color-primary);
+  --color-primary-foreground: #000;
+  --color-destructive: var(--error);
+  --color-destructive-foreground: var(--text-main);
+  --color-muted: var(--bg-sidebar);
+  --color-muted-foreground: var(--text-muted);
+  --color-border: var(--border-subtle);
+  --color-input: var(--bg-input);
+  --color-ring: var(--color-primary);
+  --font-sans: "Inter", var(--font-geist-sans), system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   --font-mono: var(--font-geist-mono);
+  --radius-lg: var(--radius);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-sm: calc(var(--radius) - 4px);
 }
 
+/* User's custom CSS below */
+.switch { position: relative; display: inline-flex; align-items: center; width: 44px; height: 24px; cursor: pointer; }
+.switch input { position: absolute; opacity: 0; width: 0; height: 0; }
+.switch .slider { position: relative; width: 100%; height: 100%; background-color: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.12); border-radius: 9999px; transition: background-color 0.2s ease, border-color 0.2s ease; }
+.switch .slider::before { content: ''; position: absolute; top: 2px; left: 2px; width: 20px; height: 20px; background: #94a3b8; border-radius: 50%; transition: transform 0.2s ease, background-color 0.2s ease; }
+.slider.round { border-radius: 9999px; }
+.switch input:checked + .slider { background-color: rgba(251, 191, 36, 0.18); border-color: rgba(251, 191, 36, 0.45); }
+.switch input:checked + .slider::before { transform: translateX(20px); background-color: var(--color-primary); }
+
+* { box-sizing: border-box; }
 body {
-  background: radial-gradient(circle at center top, #1a1a1a 0%, hsl(var(--background)) 70%); background-attachment: fixed;
-  color: hsl(var(--foreground));
-  font-family: var(--font-sans), sans-serif;
+  margin: 0;
+  min-height: 100vh;
+  background: radial-gradient(circle at 20% 20%, rgba(251, 191, 36, 0.04), transparent 32%),
+              radial-gradient(circle at 80% 0%, rgba(245, 158, 11, 0.06), transparent 28%),
+              radial-gradient(circle at 68% 80%, rgba(217, 119, 6, 0.08), transparent 14%),
+              var(--bg-main);
+  background-attachment: fixed;
+  color: var(--text-main);
+  font-family: var(--font-sans);
 }
+a { color: inherit; text-decoration: none; }
+a:hover { color: var(--accent); }
+.app-shell { backdrop-filter: blur(18px); }
+.card { background: var(--bg-card); border: 1px solid var(--border-subtle); border-radius: var(--radius); box-shadow: var(--shadow); }
+.glass { background: var(--glass); border: 1px solid var(--border-subtle); border-radius: var(--radius); box-shadow: var(--shadow); }
+.badge { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: 999px; background: rgba(251, 191, 36, 0.18); color: var(--text-main); border: 1px solid rgba(251, 191, 36, 0.35); font-weight: 700; font-size: 12px; }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.chip { padding: 4px 8px; border-radius: 999px; background: rgba(255, 255, 255, 0.06); border: 1px solid rgba(255, 255, 255, 0.12); color: var(--text-muted); font-size: 12px; }
+.section-heading { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin: 0 0 6px; }
+.section-heading h2 { margin: 0; }
+.prefs-title { font-size: 28px; margin: 0; font-weight: 700 }
+.muted { color: var(--muted); }
+.button-ghost { padding: 10px 14px; min-height:44px; border-radius: 10px; border: 1px solid var(--border-subtle); background: transparent; color: var(--text-main); cursor: pointer; }
+.button-ghost:hover { border-color: rgba(255, 255, 255, 0.18); }
+.input { width: 100%; padding: 12px 14px; height: 48px; border-radius: 12px; border: 1px solid var(--border-subtle); background: var(--bg-input); color: var(--text-main); }
+.input:focus { outline: none; box-shadow: 0 0 0 4px rgba(251, 191, 36, 0.08); border-color: var(--color-primary-hover); }
+select { background-color: var(--bg-input); color: var(--text-main); border: 1px solid var(--border-subtle); border-radius: 12px; padding: 8px 12px; }
+select option { background-color: #262626; color: var(--text-main); }
+.grid-2 { display: grid; gap: 16px; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); }
+.btn-primary { background: var(--color-primary); color: #000; font-weight:700; padding: 10px 14px; border-radius: 10px; border: none; min-height:44px }
+.btn-primary:hover { background: var(--color-primary-hover) }
+hr { border: none; border-top: 1px solid var(--border-subtle); margin: 16px 0; }

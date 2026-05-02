@@ -8,7 +8,8 @@ from typing import List, Dict, Optional
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
-from .models import MediaFile
+from .models import MediaFile, User, SystemSettings
+from .qos import QoSManager
 from .hashing import calculate_sha256, hash_pool
 from app.plugins.detectors.jpeginfo import JpegInfoDetector
 from app.plugins.detectors.pillow_deep_scan import PillowDeepScanDetector
@@ -17,9 +18,7 @@ logger = logging.getLogger(__name__)
 
 STATE_FILE = "data/scanner_state.json"
 
-# Toaster Philosophy: Limit concurrent subprocesses to avoid crashing low-end servers
-CONCURRENCY_LIMIT = 4
-detector_semaphore = asyncio.Semaphore(CONCURRENCY_LIMIT)
+
 
 
 def is_within_timebox(current_time: time, start_time: time, end_time: time) -> bool:
@@ -45,6 +44,19 @@ async def run_scan(
     and calculates SHA-256 hashes concurrently for new or modified files.
     Respects the provided timebox and pauses if the window is exceeded.
     """
+    # Freemium Logic: Single Worker Rule
+    admin_result = await db_session.execute(select(User).where(User.role == "admin").limit(1))
+    admin_user = admin_result.scalars().first()
+    is_pro = admin_user.is_pro if admin_user else False
+
+    settings_result = await db_session.execute(select(SystemSettings).limit(1))
+    settings = settings_result.scalars().first()
+    max_workers = settings.max_workers if settings else 1
+
+    worker_limit = max_workers if is_pro else 1
+    detector_semaphore = asyncio.Semaphore(worker_limit)
+    logger.info(f"Scanner starting with concurrency limit: {worker_limit} (Pro: {is_pro})")
+
     batch = []
     stack = []
 
@@ -107,7 +119,7 @@ async def run_scan(
 
                         # The Trigger: Process batch of 100
                         if len(batch) >= 100:
-                            await _process_batch(batch, db_session)
+                            await _process_batch(batch, db_session, detector_semaphore)
                             batch.clear()  # Empty the batch list
 
                             # Check timebox
@@ -125,7 +137,7 @@ async def run_scan(
 
     # Process any remaining files in the batch
     if batch:
-        await _process_batch(batch, db_session)
+        await _process_batch(batch, db_session, detector_semaphore)
 
     # Even if timebox expired after the last batch, we finished the whole scan.
     # Therefore, return completed.
@@ -138,6 +150,7 @@ async def _process_single_file(
     size: int,
     record: Optional[MediaFile],
     loop: asyncio.AbstractEventLoop,
+    detector_semaphore: asyncio.Semaphore,
 ) -> tuple:
     # Hash the file
     file_hash = await loop.run_in_executor(hash_pool, calculate_sha256, filepath)
@@ -169,16 +182,21 @@ async def _process_single_file(
     return filepath, mtime, size, record, file_hash, file_state, error_msg
 
 
-async def _process_batch(batch: List[tuple], db_session: AsyncSession) -> None:
+async def _process_batch(batch: List[tuple], db_session: AsyncSession, detector_semaphore: asyncio.Semaphore) -> None:
     """Helper function to hash a batch of files, run detections, and update the database."""
     if not batch:
         return
 
     loop = asyncio.get_running_loop()
 
+    # QoS Check before processing the batch
+    while await QoSManager.should_yield():
+        logger.debug("QoS Manager: Yielding CPU/Disk to host system...")
+        await asyncio.sleep(5)
+
     # Map the CPU-bound hashing and scanning functions concurrently
     tasks = [
-        _process_single_file(filepath, mtime, size, record, loop)
+        _process_single_file(filepath, mtime, size, record, loop, detector_semaphore)
         for filepath, mtime, size, record in batch
     ]
     results = await asyncio.gather(*tasks)

@@ -36,6 +36,7 @@ export function AIRepairDialog({ file, onClose }: AIRepairDialogProps) {
     try {
       const res = await fetch(`/api/license/activate`, {
         method: "POST",
+        credentials: "include",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ license_key: licenseKey })
       })
@@ -57,6 +58,7 @@ export function AIRepairDialog({ file, onClose }: AIRepairDialogProps) {
       const provider = useCloud ? "cloud" : "local"
       const res = await fetch(`/api/files/${file.id}/repair/ai`, {
         method: "POST",
+        credentials: "include",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ context_file_ids: contextFiles, provider })
       })

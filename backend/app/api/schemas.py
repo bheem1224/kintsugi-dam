@@ -12,6 +12,7 @@ class WebhookConfig(BaseModel):
     ai_use_kintsugi_cloud: Optional[bool] = None
     retention_days: Optional[int] = None
     snapshot_mount_path: Optional[str] = None
+    max_workers: Optional[int] = None
 
 
 class ContextPickerRequest(BaseModel):
@@ -39,7 +40,7 @@ class MediaFileResponse(BaseModel):
     state: str
 
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 
 class AIRepairRequest(BaseModel):
@@ -65,3 +66,4 @@ class SettingsUpdateRequest(BaseModel):
     ai_use_kintsugi_cloud: Optional[bool] = None
     retention_days: Optional[int] = None
     snapshot_mount_path: Optional[str] = None
+    max_workers: Optional[int] = None

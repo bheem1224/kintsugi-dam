@@ -32,24 +32,31 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const storedToken = localStorage.getItem("token");
       if (storedToken) {
         setToken(storedToken);
-        try {
-          const res = await fetch(`/api/auth/me`, {
-            headers: {
-              "Authorization": `Bearer ${storedToken}`
-            }
-          });
-          if (res.ok) {
-            const data = await res.json();
-            setUser(data);
-          } else {
-            // Token invalid or expired
-            localStorage.removeItem("token");
-            setToken(null);
-            setUser(null);
-          }
-        } catch (e) {
-          console.error("Failed to fetch user profile", e);
+      }
+      try {
+        const headers: Record<string, string> = {};
+        if (storedToken) {
+          headers["Authorization"] = `Bearer ${storedToken}`;
         }
+        const res = await fetch(`/api/auth/me`, {
+          headers,
+          credentials: "include"
+        });
+        if (res.ok) {
+          const data = await res.json();
+          setUser(data);
+          // If we logged in via OIDC cookie but no token in localStorage, we consider them authenticated via cookie
+          if (!storedToken) {
+             setToken("cookie_auth");
+          }
+        } else {
+          // Token invalid or expired
+          if (storedToken) localStorage.removeItem("token");
+          setToken(null);
+          setUser(null);
+        }
+      } catch (e) {
+        console.error("Failed to fetch user profile", e);
       }
       setLoading(false);
     };
@@ -71,7 +78,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const res = await fetch(`/api/auth/me`, {
         headers: {
           "Authorization": `Bearer ${newToken}`
-        }
+        },
+        credentials: "include"
       });
       if (res.ok) {
         const data = await res.json();

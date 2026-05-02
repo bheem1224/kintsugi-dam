@@ -30,6 +30,7 @@ export function SystemProvider({ children }: { children: React.ReactNode }) {
     try {
       if (!token) return;
       const res = await fetch(`/api/stats`, {
+        credentials: "include",
         headers: {
           "Authorization": `Bearer ${token}`
         }

@@ -13,7 +13,7 @@ interface ProUpsellModalProps {
 }
 
 export function ProUpsellModal({ featureName, onClose }: ProUpsellModalProps) {
-  const { token } = useAuth();
+  const { token, user: currentUser } = useAuth();
   const [licenseKey, setLicenseKey] = React.useState("");
   const [loading, setLoading] = React.useState(false);
   const [error, setError] = React.useState("");
@@ -32,6 +32,7 @@ export function ProUpsellModal({ featureName, onClose }: ProUpsellModalProps) {
     try {
       const res = await fetch(`/api/license/activate`, {
         method: "POST",
+        credentials: "include",
         headers: {
           "Content-Type": "application/json",
           "Authorization": `Bearer ${token}`
@@ -107,7 +108,19 @@ export function ProUpsellModal({ featureName, onClose }: ProUpsellModalProps) {
           </Button>
 
           <p className="text-center text-xs text-muted-foreground mt-4">
-            Don't have a key? <a href="#" className="text-primary hover:underline">Purchase Kintsugi Pro</a>
+            Don't have a key? <button
+              type="button"
+              className="text-primary hover:underline font-bold"
+              onClick={(e) => {
+                e.preventDefault();
+                if (window.Paddle) {
+                  window.Paddle.Checkout.open({
+                    items: [{ priceId: 'YOUR_PRICE_ID', quantity: 1 }],
+                    customData: { user_id: currentUser?.username } // Provide both or ID if we add it
+                  });
+                }
+              }}
+            >Purchase Kintsugi Pro</button>
           </p>
         </div>
       </div>

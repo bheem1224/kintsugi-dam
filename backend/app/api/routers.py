@@ -9,9 +9,10 @@ from pydantic import BaseModel
 from ..core.database import get_db
 from ..core.models import MediaFile, SystemSettings, PluginConfig, User
 from ..core.security import get_current_user
-from .schemas import MediaFileResponse, AIRepairRequest, AIRepairResponse, SettingsUpdateRequest
+from .schemas import MediaFileResponse, AIRepairRequest, AIRepairResponse, SettingsUpdateRequest, PluginPatchRequest, PluginResponse
+from ..core.models import User, Plugin
+from ..core.config import settings as app_settings
 from ..core.security import get_current_user
-from ..core.models import User
 
 
 logger = logging.getLogger(__name__)
@@ -342,3 +343,28 @@ async def remediate_file_snapshot(
     await db.commit()
 
     return AIRepairResponse(status="success", message=message)
+
+@router.patch("/plugins/{plugin_id}", response_model=PluginResponse)
+async def update_plugin(
+    plugin_id: str,
+    request: PluginPatchRequest,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    result = await db.execute(select(Plugin).where(Plugin.id == plugin_id))
+    plugin = result.scalars().first()
+
+    if not plugin:
+        raise HTTPException(status_code=404, detail="Plugin not found")
+
+    if request.channel is not None:
+        if request.channel == "beta" and not app_settings.KINTSUGI_ENABLE_BETA_PLUGINS:
+            raise HTTPException(status_code=403, detail="Beta plugins are currently disabled.")
+        plugin.channel = request.channel
+
+    if request.is_active is not None:
+        plugin.is_active = request.is_active
+
+    await db.commit()
+    await db.refresh(plugin)
+    return plugin

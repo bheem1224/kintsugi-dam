@@ -18,6 +18,8 @@ from .core.models import SystemSettings
 from sqlalchemy import select
 
 from .core.plugins import PluginManager
+from .core.nexus import nexus_bus
+from .core.models import User
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -38,25 +40,32 @@ async def lifespan(app: FastAPI):
             
         monitored_directory = settings.monitored_directory
 
-    booting_flag = "/app/data/booting.flag"
-    if os.path.exists(booting_flag):
-        logger.error("CRASH DETECTED: Booting in Safe Mode. All plugins disabled.")
-    else:
-        # Create booting flag
-        os.makedirs(os.path.dirname(booting_flag), exist_ok=True)
-        with open(booting_flag, "w") as f:
-            f.write("booting")
+    booting_flag = "/app/data/plugin_boot.lock"
 
-        async with async_session_maker() as session:
-            plugin_manager = PluginManager(session)
-            await plugin_manager.initialize_plugins()
-            app.state.plugin_manager = plugin_manager
+    async with async_session_maker() as session:
+        admin_result = await session.execute(select(User).where(User.role == "admin"))
+        admin_user = admin_result.scalars().first()
+        is_pro = admin_user.is_pro if admin_user else False
 
-        # Delete booting flag
-        try:
-            os.remove(booting_flag)
-        except OSError as e:
-            logger.warning(f"Could not remove booting flag: {e}")
+        if not is_pro:
+            logger.info("Free Tier Active: Nexus Event Bus Disabled. Skipping plugin loader.")
+        else:
+            if os.path.exists(booting_flag):
+                logger.error("CRASH DETECTED: SAFE MODE ENGAGED. PREVIOUS BOOT FAILED. All plugins disabled.")
+            else:
+                os.makedirs(os.path.dirname(booting_flag), exist_ok=True)
+                with open(booting_flag, "w") as f:
+                    f.write("booting")
+
+                nexus_bus.initialize()
+                plugin_manager = PluginManager(session)
+                await plugin_manager.initialize_plugins()
+                app.state.plugin_manager = plugin_manager
+
+                try:
+                    os.remove(booting_flag)
+                except OSError as e:
+                    logger.warning(f"Could not remove booting flag: {e}")
 
     app.state.scheduler = start_scheduler(monitored_directory, time(1, 0), time(5, 0))
 

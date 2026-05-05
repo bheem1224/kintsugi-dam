@@ -80,8 +80,12 @@ class User(Base):
 class Plugin(Base):
     __tablename__ = "plugins"
 
-    id: Mapped[int] = mapped_column(primary_key=True)
-    plugin_id: Mapped[str] = mapped_column(String, unique=True)
+    id: Mapped[str] = mapped_column(String, primary_key=True)
     name: Mapped[str] = mapped_column(String)
-    version: Mapped[str] = mapped_column(String)
-    is_enabled: Mapped[bool] = mapped_column(Boolean, default=False)
+    installed_version: Mapped[str] = mapped_column(String)
+    channel: Mapped[str] = mapped_column(String, default="stable")
+    is_active: Mapped[bool] = mapped_column(Boolean, default=False)
+    source_url: Mapped[Optional[str]] = mapped_column(String, nullable=True)
+    is_official: Mapped[bool] = mapped_column(Boolean, default=False)
+    type: Mapped[str] = mapped_column(String)
+    is_privileged: Mapped[bool] = mapped_column(Boolean, default=False)

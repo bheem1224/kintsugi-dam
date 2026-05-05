@@ -70,3 +70,22 @@ class SettingsUpdateRequest(BaseModel):
     scan_intensity: Optional[str] = None
     is_setup_complete: Optional[bool] = None
     max_workers: Optional[int] = None
+
+
+class PluginResponse(BaseModel):
+    id: str
+    name: str
+    installed_version: str
+    channel: str
+    is_active: bool
+    source_url: Optional[str] = None
+    is_official: bool
+    type: str
+    is_privileged: bool
+
+    class Config:
+        from_attributes = True
+
+class PluginPatchRequest(BaseModel):
+    is_active: Optional[bool] = None
+    channel: Optional[str] = None

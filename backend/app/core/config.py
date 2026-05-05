@@ -10,6 +10,7 @@ class Settings(BaseSettings):
     PADDLE_API_KEY: Optional[str] = None
     PADDLE_WEBHOOK_SECRET: Optional[str] = None
     PADDLE_ENVIRONMENT: str = "sandbox"
+    KINTSUGI_ENABLE_BETA_PLUGINS: bool = False
 
     class Config:
         env_file = ".env"

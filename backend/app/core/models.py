@@ -55,6 +55,7 @@ class SystemSettings(Base):
     triage_directory: Mapped[str] = mapped_column(String, default="/app/data/triage")
     scan_intensity: Mapped[str] = mapped_column(String, default="eco") # eco, balanced, turbo
     is_setup_complete: Mapped[bool] = mapped_column(Boolean, default=False)
+    max_workers: Mapped[int] = mapped_column(Integer, default=1)
     auto_restore: Mapped[bool] = mapped_column(Boolean, default=False)
     auto_restore_cloud: Mapped[bool] = mapped_column(Boolean, default=False)
     auto_restore_ai: Mapped[bool] = mapped_column(Boolean, default=False)
@@ -71,3 +72,16 @@ class User(Base):
     hashed_password: Mapped[str] = mapped_column(String)
     role: Mapped[str] = mapped_column(String, default="user")
     license_key: Mapped[Optional[str]] = mapped_column(String, nullable=True)
+    is_pro: Mapped[bool] = mapped_column(Boolean, default=False)
+    paddle_customer_id: Mapped[Optional[str]] = mapped_column(String, nullable=True)
+    paddle_subscription_id: Mapped[Optional[str]] = mapped_column(String, nullable=True)
+
+
+class Plugin(Base):
+    __tablename__ = "plugins"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    plugin_id: Mapped[str] = mapped_column(String, unique=True)
+    name: Mapped[str] = mapped_column(String)
+    version: Mapped[str] = mapped_column(String)
+    is_enabled: Mapped[bool] = mapped_column(Boolean, default=False)

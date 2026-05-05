@@ -1,4 +1,5 @@
 "use client"
+import { ProUpsellModal } from "@/components/modals/ProUpsellModal"
 
 import * as React from "react"
 import { useDebounce } from "use-debounce"
@@ -30,8 +31,10 @@ export default function SettingsPage() {
   const [autoRestore, setAutoRestore] = React.useState(false)
   const [autoRestoreCloud, setAutoRestoreCloud] = React.useState(false)
   const [autoRestoreAI, setAutoRestoreAI] = React.useState(false)
+  const [autoRepair, setAutoRepair] = React.useState(false)
   const [aiUseKintsugiCloud, setAiUseKintsugiCloud] = React.useState(true)
   const [upsellFeature, setUpsellFeature] = React.useState("")
+  const [showUpsellModal, setShowUpsellModal] = React.useState(false)
   const [retentionDays, setRetentionDays] = React.useState("90")
   const [webhookUrls, setWebhookUrls] = React.useState({
     discord: "",
@@ -56,7 +59,8 @@ export default function SettingsPage() {
       try {
         if (!token) return;
         const res = await fetch(`/api/settings`, {
-          headers: {
+          credentials: "include",
+        headers: {
             "Authorization": `Bearer ${token}`
           }
         })
@@ -109,6 +113,7 @@ export default function SettingsPage() {
     try {
       await fetch(`/api/settings`, {
         method: "POST",
+        credentials: "include",
         headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
         body: JSON.stringify({
           maintenance_start: maintenanceStart,
@@ -145,7 +150,8 @@ export default function SettingsPage() {
     // Auto-save plugins when toggled
     fetch(`/api/settings`, {
       method: "POST",
-      headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
+      credentials: "include",
+        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
       body: JSON.stringify({ plugins: updatedPlugins })
     }).catch(console.error)
   }

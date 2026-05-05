@@ -30,7 +30,8 @@ export default function TriageGallery() {
       try {
         if (!token) return;
         const res = await fetch(`/api/files/corrupted`, {
-          headers: {
+          credentials: "include",
+        headers: {
             "Authorization": `Bearer ${token}`
           }
         })

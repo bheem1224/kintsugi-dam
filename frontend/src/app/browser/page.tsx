@@ -56,6 +56,7 @@ export default function BrowserPage() {
     setLoading(true)
     try {
       const res = await fetch(`/api/fs/browse?path=${encodeURIComponent(path)}`, {
+        credentials: "include",
         headers: {
           "Authorization": `Bearer ${token}`
         }
@@ -91,6 +92,7 @@ export default function BrowserPage() {
     try {
       const res = await fetch(`/api/fs/scan`, {
         method: "POST",
+        credentials: "include",
         headers: {
           "Content-Type": "application/json",
           "Authorization": `Bearer ${token}`

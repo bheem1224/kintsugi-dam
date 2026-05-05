@@ -52,6 +52,7 @@ class SystemSettings(Base):
     maintenance_start: Mapped[str] = mapped_column(String, default="01:00")
     maintenance_end: Mapped[str] = mapped_column(String, default="05:00")
     monitored_directory: Mapped[str] = mapped_column(String, default="/media")
+    max_workers: Mapped[int] = mapped_column(Integer, default=1)
     auto_restore: Mapped[bool] = mapped_column(Boolean, default=False)
     auto_restore_cloud: Mapped[bool] = mapped_column(Boolean, default=False)
     auto_restore_ai: Mapped[bool] = mapped_column(Boolean, default=False)
@@ -68,6 +69,9 @@ class User(Base):
     hashed_password: Mapped[str] = mapped_column(String)
     role: Mapped[str] = mapped_column(String, default="user")
     license_key: Mapped[Optional[str]] = mapped_column(String, nullable=True)
+    is_pro: Mapped[bool] = mapped_column(Boolean, default=False)
+    paddle_customer_id: Mapped[Optional[str]] = mapped_column(String, nullable=True)
+    paddle_subscription_id: Mapped[Optional[str]] = mapped_column(String, nullable=True)
 
 
 class Plugin(Base):

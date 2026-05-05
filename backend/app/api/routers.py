@@ -139,6 +139,8 @@ async def update_settings(request: Request, settings_req: SettingsUpdateRequest,
         settings.retention_days = settings_req.retention_days
     if settings_req.snapshot_mount_path is not None:
         settings.snapshot_mount_path = settings_req.snapshot_mount_path
+    if settings_req.max_workers is not None:
+        settings.max_workers = settings_req.max_workers
 
     if settings_req.plugins is not None:
         for plugin_name, is_active in settings_req.plugins.items():

@@ -16,6 +16,7 @@ export default function LoginPage() {
   const router = useRouter()
 
   const [setupRequired, setSetupRequired] = React.useState<boolean | null>(null)
+  const [oidcEnabled, setOidcEnabled] = React.useState<boolean>(false)
   const [currentStep, setCurrentStep] = React.useState(0) // 0: Check, 1: Admin, 2: Settings, 3: Demo, 4: Success
 
   // Admin Provisioning State
@@ -41,6 +42,7 @@ export default function LoginPage() {
         if (res.ok) {
           const data = await res.json()
           setSetupRequired(data.setup_required)
+          setOidcEnabled(data.oidc_enabled || false)
           if (data.setup_required) {
             setCurrentStep(1)
           }
@@ -67,6 +69,7 @@ export default function LoginPage() {
 
       const res = await fetch("/api/auth/login", {
         method: "POST",
+        credentials: "include",
         headers: { "Content-Type": "application/x-www-form-urlencoded" },
         body: formData
       })
@@ -93,6 +96,7 @@ export default function LoginPage() {
     try {
       const res = await fetch("/api/auth/register", {
         method: "POST",
+        credentials: "include",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ username, email, password })
       })
@@ -120,6 +124,7 @@ export default function LoginPage() {
     try {
       const res = await fetch("/api/settings", {
         method: "POST",
+        credentials: "include",
         headers: {
           "Content-Type": "application/json",
           "Authorization": `Bearer ${localStorage.getItem("token")}`
@@ -180,7 +185,23 @@ export default function LoginPage() {
               <CardTitle>Sign In</CardTitle>
               <CardDescription>Enter your credentials to access your library.</CardDescription>
             </CardHeader>
-            <CardContent>
+            <CardContent className="space-y-4">
+              {oidcEnabled && (
+                <div className="space-y-4">
+                  <Button type="button" variant="outline" className="w-full bg-white text-black hover:bg-gray-200" onClick={() => window.location.href = "/api/auth/oidc/login"}>
+                    <ShieldCheck className="w-4 h-4 mr-2" />
+                    Login with SSO
+                  </Button>
+                  <div className="relative">
+                    <div className="absolute inset-0 flex items-center">
+                      <span className="w-full border-t border-white/10" />
+                    </div>
+                    <div className="relative flex justify-center text-xs uppercase">
+                      <span className="bg-black/50 px-2 text-muted-foreground backdrop-blur-md">Or</span>
+                    </div>
+                  </div>
+                </div>
+              )}
               <form onSubmit={handleLogin} className="space-y-4">
                 <div className="space-y-2">
                   <Label htmlFor="username">Username</Label>

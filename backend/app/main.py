@@ -10,6 +10,7 @@ from datetime import time
 from .api.routers import router as api_router
 from .api.license import router as license_router
 from .api.auth import router as auth_router
+from .api.billing import router as billing_router
 from .core.scheduler import start_scheduler
 from .core.watcher import WatcherService
 from .core.database import async_session_maker, engine, Base
@@ -75,6 +76,7 @@ else:
     allowed_origins = ["http://localhost:3000", "http://127.0.0.1:3000"]
 
 # Configure CORS
+from starlette.middleware.sessions import SessionMiddleware
 app.add_middleware(
     CORSMiddleware,
     allow_origins=allowed_origins,
@@ -82,10 +84,13 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+import secrets
+app.add_middleware(SessionMiddleware, secret_key=os.environ.get("SESSION_SECRET", secrets.token_urlsafe(32)))
 
 app.include_router(api_router, prefix="/api")
 app.include_router(license_router, prefix="/api/license")
 app.include_router(auth_router, prefix="/api/auth", tags=["auth"])
+app.include_router(billing_router, prefix="/api/billing", tags=["billing"])
 
 @app.get("/")
 async def root():

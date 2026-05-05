@@ -7,6 +7,7 @@ import "./globals.css";
 import { Header } from "@/components/layout/Header";
 import { Sidebar } from "@/components/layout/Sidebar";
 import { Toaster } from "@/components/ui/toaster";
+import Script from "next/script";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -39,6 +40,10 @@ export default function RootLayout({
         {children}
       </AuthGuard>
       </AuthProvider>
+        <Script
+          src="https://cdn.paddle.com/paddle/v2/paddle.js"
+          strategy="afterInteractive"
+        />
       </body>
     </html>
   );

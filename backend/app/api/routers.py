@@ -245,7 +245,7 @@ async def browse_fs(path: str = "/media", current_user: User = Depends(get_curre
     results.sort(key=lambda x: (0 if x["type"] == "directory" else 1, x["name"].lower()))
     return results
 
-from ..core.scanner import run_scan
+from ..core.scanner import FileScanner
 from ..core.remediation import remediate_from_snapshot
 
 

@@ -181,6 +181,7 @@ export default function BrowserPage() {
                       size="sm"
                       onClick={() => handleScan(item.path)}
                       disabled={scanLoading === item.path}
+                      className="transition-all hover:-translate-y-0.5 hover:bg-primary/10 hover:border-primary/30"
                     >
                       <Scan className="w-4 h-4 mr-2" />
                       {scanLoading === item.path ? "Scanning..." : "Scan Now"}

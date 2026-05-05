@@ -54,7 +54,7 @@ export function Sidebar() {
         {!isPro && (
           <div className="px-2">
             <Button
-              className="w-full bg-primary/10 text-primary hover:bg-primary hover:text-black font-semibold border border-primary/20 transition-all"
+              className="w-full bg-primary/10 text-primary hover:bg-primary hover:text-black font-semibold border border-primary/20 transition-all hover:-translate-y-0.5 hover:shadow-[0_0_15px_rgba(var(--primary),0.3)]"
               onClick={() => setIsUpsellOpen(true)}
             >
               Upgrade to Pro

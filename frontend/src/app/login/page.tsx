@@ -1,14 +1,18 @@
 "use client"
 
 import * as React from "react"
+import { motion, AnimatePresence } from "framer-motion"
 import { useAuth } from "@/context/AuthContext"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card"
-import { Input } from "@/components/ui/input"
+import { Card, CardFooter } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { Label } from "@/components/ui/label"
-import { Badge } from "@/components/ui/badge"
-import { Shield, CheckCircle2, ChevronRight, HardDrive, ShieldCheck, Zap, Activity, MousePointer2 } from "lucide-react"
+import { Shield, ChevronRight, Zap, ChevronLeft } from "lucide-react"
 import { useRouter } from "next/navigation"
+
+// Step Components
+import { StepAdmin } from "./components/StepAdmin"
+import { StepPaths } from "./components/StepPaths"
+import { StepThree } from "./components/StepThree"
+import { StepFour } from "./components/StepFour"
 
 export default function LoginPage() {
   const { login } = useAuth()
@@ -17,7 +21,8 @@ export default function LoginPage() {
   const [setupRequired, setSetupRequired] = React.useState<boolean | null>(null)
   const [adminExists, setAdminExists] = React.useState(false)
   const [oidcEnabled, setOidcEnabled] = React.useState<boolean>(false)
-  const [currentStep, setCurrentStep] = React.useState(0) // 0: Check, 1: Welcome/Admin, 2: Paths, 3: Scan Settings, 4: Success
+  const [currentStep, setCurrentStep] = React.useState(0) // 0: Check, 1: Welcome/Admin, 2: Paths, 3: Triage, 4: Success
+  const [direction, setDirection] = React.useState(0)
 
   // Admin Provisioning State
   const [username, setUsername] = React.useState("")
@@ -32,8 +37,11 @@ export default function LoginPage() {
   const [triagePath, setTriagePath] = React.useState("/app/data/triage")
   const [pathTestResults, setPathTestResults] = React.useState<{media?: {status: string, message: string}, triage?: {status: string, message: string}} | null>(null)
 
-  // Step 3: Scan Settings
-  const [scanIntensity, setScanIntensity] = React.useState<"eco" | "balanced" | "turbo">("eco")
+  // Step 3: Triage Options State
+  const [autoRestore, setAutoRestore] = React.useState(true)
+  const [autoRestoreCloud, setAutoRestoreCloud] = React.useState(false)
+  const [autoRestoreAI, setAutoRestoreAI] = React.useState(false)
+  const [aiUseKintsugiCloud, setAiUseKintsugiCloud] = React.useState(true)
 
   React.useEffect(() => {
     const checkStatus = async () => {
@@ -64,8 +72,13 @@ export default function LoginPage() {
     checkStatus()
   }, [])
 
-  const handleLogin = async (e: React.FormEvent) => {
-    e.preventDefault()
+  const paginate = (newStep: number) => {
+    setDirection(newStep > currentStep ? 1 : -1)
+    setCurrentStep(newStep)
+  }
+
+  const handleLogin = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault()
     setError("")
     setLoading(true)
 
@@ -83,7 +96,12 @@ export default function LoginPage() {
 
       if (res.ok) {
         const data = await res.json()
-        login(data.access_token)
+        localStorage.setItem("token", data.access_token)
+        if (setupRequired) {
+          paginate(2)
+        } else {
+          login(data.access_token)
+        }
       } else {
         const data = await res.json()
         setError(data.detail || "Authentication failed")
@@ -115,7 +133,7 @@ export default function LoginPage() {
       if (res.ok) {
         const data = await res.json()
         localStorage.setItem("token", data.access_token) // Stash for setup steps
-        setCurrentStep(2)
+        paginate(2)
       } else {
         const data = await res.json()
         setError(data.detail || "Registration failed")
@@ -149,10 +167,6 @@ export default function LoginPage() {
     }
   }
 
-  const savePaths = () => {
-    setCurrentStep(3)
-  }
-
   const finalizeSetup = async () => {
     setLoading(true)
     try {
@@ -166,13 +180,16 @@ export default function LoginPage() {
         body: JSON.stringify({
           monitored_directory: mediaPath,
           triage_directory: triagePath,
-          scan_intensity: scanIntensity,
+          auto_restore: autoRestore,
+          auto_restore_cloud: autoRestoreCloud,
+          auto_restore_ai: autoRestoreAI,
+          ai_use_kintsugi_cloud: aiUseKintsugiCloud,
           is_setup_complete: true
         })
       })
 
       if (res.ok) {
-        setCurrentStep(4)
+        paginate(4)
       } else {
         const data = await res.json()
         setError(data.detail || "Failed to save settings")
@@ -182,6 +199,23 @@ export default function LoginPage() {
     } finally {
       setLoading(false)
     }
+  }
+
+  const variants = {
+    enter: (direction: number) => ({
+      x: direction > 0 ? 100 : -100,
+      opacity: 0
+    }),
+    center: {
+      zIndex: 1,
+      x: 0,
+      opacity: 1
+    },
+    exit: (direction: number) => ({
+      zIndex: 0,
+      x: direction < 0 ? 100 : -100,
+      opacity: 0
+    })
   }
 
   if (setupRequired === null) {
@@ -201,40 +235,27 @@ export default function LoginPage() {
             <p className="text-muted-foreground mt-2 text-center">Secure digital asset management and automated healing.</p>
           </div>
           <Card className="shadow-2xl border-white/10 bg-black/50 backdrop-blur-xl">
-            <CardHeader>
-              <CardTitle>Sign In</CardTitle>
-              <CardDescription>Enter your credentials to access your library.</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
+             {/* Simple login form kept inline for non-setup flow */}
+             <div className="p-6 space-y-4">
+              <h2 className="text-xl font-bold">Sign In</h2>
+              <p className="text-sm text-muted-foreground">Enter your credentials to access your library.</p>
+              
               {oidcEnabled && (
                 <div className="space-y-4">
-                  <Button type="button" variant="outline" className="w-full bg-white text-black hover:bg-gray-200" onClick={() => window.location.href = "/api/auth/oidc/login"}>
-                    <ShieldCheck className="w-4 h-4 mr-2" />
+                  <Button type="button" variant="outline" className="w-full bg-white text-black hover:bg-gray-200 transition-all hover:-translate-y-0.5 hover:shadow-lg" onClick={() => window.location.href = "/api/auth/oidc/login"}>
                     Login with SSO
                   </Button>
-                  <div className="relative">
-                    <div className="absolute inset-0 flex items-center">
-                      <span className="w-full border-t border-white/10" />
-                    </div>
-                    <div className="relative flex justify-center text-xs uppercase">
-                      <span className="bg-black/50 px-2 text-muted-foreground backdrop-blur-md">Or</span>
-                    </div>
-                  </div>
+                  <div className="relative"><div className="absolute inset-0 flex items-center"><span className="w-full border-t border-white/10" /></div><div className="relative flex justify-center text-xs uppercase"><span className="bg-black/50 px-2 text-muted-foreground">Or</span></div></div>
                 </div>
               )}
+              
               <form onSubmit={handleLogin} className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="username">Username</Label>
-                  <Input id="username" value={username} onChange={(e) => setUsername(e.target.value)} placeholder="admin" required />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="password">Password</Label>
-                  <Input id="password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="••••••••" required />
-                </div>
-                {error && <div className="p-3 bg-destructive/20 border border-destructive/30 text-destructive text-sm rounded-md">{error}</div>}
-                <Button type="submit" className="w-full mt-4" disabled={loading}>{loading ? "Authenticating..." : "Sign In"}</Button>
+                <div className="space-y-2"><label className="text-sm font-medium">Username</label><input className="w-full bg-white/5 border border-white/10 rounded-md p-2" value={username} onChange={(e) => setUsername(e.target.value)} required /></div>
+                <div className="space-y-2"><label className="text-sm font-medium">Password</label><input className="w-full bg-white/5 border border-white/10 rounded-md p-2" type="password" value={password} onChange={(e) => setPassword(e.target.value)} required /></div>
+                {error && <div className="text-xs text-red-500">{error}</div>}
+                <Button type="submit" className="w-full transition-all hover:-translate-y-0.5 hover:shadow-lg" disabled={loading}>{loading ? "Authenticating..." : "Sign In"}</Button>
               </form>
-            </CardContent>
+            </div>
           </Card>
         </div>
       </div>
@@ -242,7 +263,7 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen w-full flex items-center justify-center bg-[radial-gradient(circle_at_center_top,_#1a1a1a_0%,_hsl(var(--background))_70%)] relative">
+    <div className="min-h-screen w-full flex items-center justify-center bg-[radial-gradient(circle_at_center_top,_#1a1a1a_0%,_hsl(var(--background))_70%)] relative overflow-hidden">
       <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[800px] bg-primary/5 rounded-full blur-[120px] pointer-events-none" />
 
       <div className="w-full max-w-2xl z-10 px-4">
@@ -262,182 +283,93 @@ export default function LoginPage() {
           </div>
         )}
 
-        {/* STEP 1: Welcome & Admin */}
-        {currentStep === 1 && (
-          <Card className="shadow-2xl border-white/10 bg-black/50 backdrop-blur-xl animate-in fade-in slide-in-from-bottom-4 duration-500">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2"><ShieldCheck className="w-5 h-5 text-primary"/> Welcome & Admin Creation</CardTitle>
-              <CardDescription>
-                {adminExists 
-                  ? "An administrator already exists. Please sign in to continue setup." 
-                  : "Kintsugi needs an admin account to protect the system and manage your assets."}
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              {adminExists ? (
-                <form id="login-form-setup" onSubmit={handleLogin} className="space-y-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="username">Username</Label>
-                    <Input id="username" value={username} onChange={(e) => setUsername(e.target.value)} placeholder="admin" required />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="password">Password</Label>
-                    <Input id="password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="••••••••" required />
-                  </div>
-                  {error && <div className="p-3 bg-destructive/20 border border-destructive/30 text-destructive text-sm rounded-md">{error}</div>}
-                </form>
-              ) : (
-                <form id="admin-form" onSubmit={handleAdminCreation} className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2 col-span-2">
-                    <Label htmlFor="username">Admin Username</Label>
-                    <Input id="username" value={username} onChange={(e) => setUsername(e.target.value)} placeholder="e.g. curator_alpha" required />
-                  </div>
-                  <div className="space-y-2 col-span-2">
-                    <Label htmlFor="email">Email Address</Label>
-                    <Input id="email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="admin@kintsugi.local" required />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="password">Password</Label>
-                    <Input id="password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="••••••••" required />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="confirm">Confirm Password</Label>
-                    <Input id="confirm" type="password" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} placeholder="••••••••" required />
-                  </div>
-                  {error && <div className="p-3 bg-destructive/20 border border-destructive/30 text-destructive text-sm rounded-md col-span-2">{error}</div>}
-                </form>
-              )}
-            </CardContent>
-            <CardFooter>
-              {adminExists ? (
-                <Button type="submit" form="login-form-setup" className="w-full h-12 text-lg font-semibold" disabled={loading}>
-                  {loading ? "Signing In..." : "Sign In to Continue"} <ChevronRight className="ml-2 w-5 h-5" />
-                </Button>
-              ) : (
-                <Button type="submit" form="admin-form" className="w-full h-12 text-lg font-semibold" disabled={loading}>
-                  {loading ? "Creating..." : "Create Admin Account"} <ChevronRight className="ml-2 w-5 h-5" />
-                </Button>
-              )}
-            </CardFooter>
-          </Card>
-        )}
+        <div className="relative">
+          <AnimatePresence mode="wait" custom={direction}>
+            <motion.div
+              key={currentStep}
+              custom={direction}
+              variants={variants}
+              initial="enter"
+              animate="center"
+              exit="exit"
+              transition={{
+                x: { type: "spring", stiffness: 300, damping: 30 },
+                opacity: { duration: 0.3 }
+              }}
+            >
+              {currentStep < 4 ? (
+                <Card className="shadow-2xl border-white/10 bg-black/50 backdrop-blur-xl">
+                  {currentStep === 1 && (
+                    <StepAdmin
+                      adminExists={adminExists}
+                      username={username} setUsername={setUsername}
+                      email={email} setEmail={setEmail}
+                      password={password} setPassword={setPassword}
+                      confirmPassword={confirmPassword} setConfirmPassword={setConfirmPassword}
+                      error={error}
+                    />
+                  )}
+                  {currentStep === 2 && (
+                    <StepPaths
+                      mediaPath={mediaPath} setMediaPath={setMediaPath}
+                      triagePath={triagePath} setTriagePath={setTriagePath}
+                      pathTestResults={pathTestResults}
+                      testPaths={testPaths}
+                      loading={loading}
+                    />
+                  )}
+                  {currentStep === 3 && (
+                    <StepThree
+                      autoRestore={autoRestore} setAutoRestore={setAutoRestore}
+                      autoRestoreCloud={autoRestoreCloud} setAutoRestoreCloud={setAutoRestoreCloud}
+                      autoRestoreAI={autoRestoreAI} setAutoRestoreAI={setAutoRestoreAI}
+                      aiUseKintsugiCloud={aiUseKintsugiCloud} setAiUseKintsugiCloud={setAiUseKintsugiCloud}
+                    />
+                  )}
 
-        {/* STEP 2: Path Configuration */}
-        {currentStep === 2 && (
-          <Card className="shadow-2xl border-white/10 bg-black/50 backdrop-blur-xl animate-in fade-in slide-in-from-bottom-4 duration-500">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2"><HardDrive className="w-5 h-5 text-primary"/> Step 2: Path Configuration</CardTitle>
-              <CardDescription>Define where your assets live and where Kintsugi should quarantine issues.</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              <div className="space-y-4 p-4 bg-white/5 rounded-xl border border-white/10">
-                <div className="space-y-2">
-                  <div className="flex justify-between items-center">
-                    <Label htmlFor="mediaPath">Media Directory (Watch Folder)</Label>
-                    {pathTestResults?.media && (
-                      <span className={`text-xs flex items-center gap-1 ${pathTestResults.media.status === 'ok' ? 'text-green-400' : 'text-red-400'}`}>
-                        {pathTestResults.media.status === 'ok' ? <CheckCircle2 className="w-3 h-3"/> : "!"} {pathTestResults.media.message}
-                      </span>
+                  <CardFooter className="flex gap-3">
+                    {currentStep > 1 && (
+                      <Button variant="ghost" onClick={() => paginate(currentStep - 1)} className="gap-2 transition-all hover:bg-white/5">
+                        <ChevronLeft className="w-4 h-4" /> Back
+                      </Button>
                     )}
-                  </div>
-                  <Input id="mediaPath" value={mediaPath} onChange={(e) => setMediaPath(e.target.value)} placeholder="/media" />
-                  <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Where your existing library is mounted</p>
-                </div>
-
-                <div className="space-y-2">
-                   <div className="flex justify-between items-center">
-                    <Label htmlFor="triagePath">Triage Directory (Quarantine)</Label>
-                    {pathTestResults?.triage && (
-                      <span className={`text-xs flex items-center gap-1 ${pathTestResults.triage.status === 'ok' ? 'text-green-400' : 'text-red-400'}`}>
-                        {pathTestResults.triage.status === 'ok' ? <CheckCircle2 className="w-3 h-3"/> : "!"} {pathTestResults.triage.message}
-                      </span>
+                    
+                    {currentStep === 1 && (
+                      <Button onClick={adminExists ? handleLogin : handleAdminCreation} className="flex-1 h-12 text-lg font-semibold transition-all hover:-translate-y-0.5 hover:shadow-lg" disabled={loading}>
+                        {loading ? "Processing..." : (adminExists ? "Sign In to Continue" : "Create Admin Account")} <ChevronRight className="ml-2 w-5 h-5" />
+                      </Button>
                     )}
-                  </div>
-                  <Input id="triagePath" value={triagePath} onChange={(e) => setTriagePath(e.target.value)} placeholder="/app/data/triage" />
-                  <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Where suspicious files are moved for review</p>
-                </div>
-              </div>
+                    {currentStep === 2 && (
+                      <Button className="flex-1 h-12 text-lg font-semibold transition-all hover:-translate-y-0.5 hover:shadow-lg" onClick={() => paginate(3)} disabled={!pathTestResults || pathTestResults.media?.status !== 'ok' || pathTestResults.triage?.status !== 'ok'}>
+                        Continue <ChevronRight className="ml-2 w-5 h-5" />
+                      </Button>
+                    )}
+                    {currentStep === 3 && (
+                      <Button className="flex-1 h-12 text-lg font-semibold transition-all hover:-translate-y-0.5 hover:shadow-lg" onClick={finalizeSetup} disabled={loading}>
+                        {loading ? "Finalizing..." : "Complete Setup"} <ChevronRight className="ml-2 w-5 h-5" />
+                      </Button>
+                    )}
+                  </CardFooter>
+                </Card>
+              ) : (
+                <StepFour />
+              )}
+            </motion.div>
+          </AnimatePresence>
+        </div>
 
-              <div className="flex justify-center">
-                <Button variant="outline" size="sm" onClick={testPaths} disabled={loading} className="gap-2 border-primary/20 hover:bg-primary/10">
-                  <Activity className="w-4 h-4" /> Test Paths & Permissions
-                </Button>
-              </div>
-            </CardContent>
-            <CardFooter className="flex gap-3">
-              <Button variant="ghost" onClick={() => setCurrentStep(1)}>Back</Button>
-              <Button className="flex-1 h-12 text-lg font-semibold" onClick={savePaths} disabled={!pathTestResults || pathTestResults.media?.status !== 'ok' || pathTestResults.triage?.status !== 'ok'}>
-                Continue <ChevronRight className="ml-2 w-5 h-5" />
-              </Button>
-            </CardFooter>
-          </Card>
-        )}
-
-        {/* STEP 3: Scan Settings & Freemium */}
-        {currentStep === 3 && (
-          <Card className="shadow-2xl border-white/10 bg-black/50 backdrop-blur-xl animate-in fade-in slide-in-from-bottom-4 duration-500">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2"><Zap className="w-5 h-5 text-primary"/> Step 3: Initial Scan Settings</CardTitle>
-              <CardDescription>Choose how aggressively Kintsugi should analyze your library.</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-               {[
-                 { id: "eco", title: "Eco Mode", desc: "Standard hashing & metadata checks. Lowest CPU impact.", badge: "Free" },
-                 { id: "balanced", title: "Balanced", desc: "Deep bitstream analysis & structural validation.", badge: "Pro", locked: true },
-                 { id: "turbo", title: "Turbo", desc: "Full frame-by-frame AI perceptual hashing & repair prep.", badge: "Pro", locked: true }
-               ].map((opt) => (
-                 <div 
-                   key={opt.id}
-                   onClick={() => !opt.locked && setScanIntensity(opt.id as any)}
-                   className={`relative p-4 rounded-xl border transition-all cursor-pointer flex items-center justify-between ${scanIntensity === opt.id ? 'bg-primary/10 border-primary shadow-[0_0_15px_rgba(var(--primary),0.2)]' : 'bg-white/5 border-white/10 hover:border-white/20'}`}
-                 >
-                   <div className="flex items-center gap-4">
-                      <div className={`p-2 rounded-lg ${scanIntensity === opt.id ? 'bg-primary text-primary-foreground' : 'bg-white/10 text-muted-foreground'}`}>
-                        <Activity className="w-5 h-5" />
-                      </div>
-                      <div>
-                        <div className="flex items-center gap-2">
-                          <span className="font-semibold">{opt.title}</span>
-                          <Badge variant={opt.locked ? "secondary" : "outline"} className={opt.locked ? "bg-amber-500/10 text-amber-500 border-amber-500/20" : ""}>{opt.badge}</Badge>
-                        </div>
-                        <p className="text-sm text-muted-foreground">{opt.desc}</p>
-                      </div>
-                   </div>
-                   {opt.locked && <Shield className="w-5 h-5 text-muted-foreground/30" />}
-                   {scanIntensity === opt.id && <CheckCircle2 className="w-5 h-5 text-primary" />}
-                 </div>
-               ))}
-            </CardContent>
-            <CardFooter className="flex gap-3">
-              <Button variant="ghost" onClick={() => setCurrentStep(2)}>Back</Button>
-              <Button className="flex-1 h-12 text-lg font-semibold" onClick={finalizeSetup} disabled={loading}>
-                {loading ? "Saving..." : "Finalize Setup"} <ChevronRight className="ml-2 w-5 h-5" />
-              </Button>
-            </CardFooter>
-          </Card>
-        )}
-
-        {/* STEP 4: Success */}
         {currentStep === 4 && (
-          <div className="flex flex-col items-center justify-center text-center space-y-8 py-12 animate-in zoom-in duration-700">
-            <div className="relative">
-              <div className="absolute inset-0 bg-primary/30 rounded-full blur-[100px] animate-pulse scale-150" />
-              <div className="relative z-10 h-32 w-32 rounded-full bg-black/40 border-2 border-primary flex items-center justify-center shadow-[0_0_50px_rgba(var(--primary),0.4)]">
-                <CheckCircle2 className="w-20 h-20 text-primary" />
-              </div>
-            </div>
-            
-            <div className="space-y-2">
-              <h2 className="text-5xl font-extrabold tracking-tighter">Setup Complete</h2>
-              <p className="text-xl text-muted-foreground">Kintsugi-DAM is now guarding your digital legacy.</p>
-            </div>
-
-            <Button size="lg" className="h-14 px-10 text-xl font-bold rounded-full shadow-[0_0_30px_rgba(var(--primary),0.4)] hover:shadow-[0_0_50px_rgba(var(--primary),0.6)] transition-all" onClick={() => login(localStorage.getItem("token")!)}>
+          <motion.div 
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.8 }}
+            className="flex justify-center mt-8"
+          >
+            <Button size="lg" className="h-14 px-10 text-xl font-bold rounded-full shadow-[0_0_30px_rgba(var(--primary),0.4)] hover:shadow-[0_0_50px_rgba(var(--primary),0.6)] transition-all hover:-translate-y-1 active:scale-95" onClick={() => login(localStorage.getItem("token")!)}>
               Launch Dashboard
             </Button>
-          </div>
+          </motion.div>
         )}
-
       </div>
     </div>
   )

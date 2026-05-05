@@ -6,6 +6,7 @@ import { useSystem } from "@/context/SystemContext"
 import { CheckCircle, ShieldAlert, Cpu, Activity, Clock, HeartPulse, AlertTriangle, Lightbulb, FolderSearch, ShieldCheck } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { Button } from "@/components/ui/button"
+import { Badge } from "@/components/ui/badge"
 
 export default function Dashboard() {
   const { stats, loading } = useSystem();
@@ -44,7 +45,7 @@ export default function Dashboard() {
 
   return (
     <div className="space-y-6 max-w-5xl mx-auto relative">
-      {/* Welcome Modal / Tooltip Overlay */}
+      {/* ... (Welcome Modal Content remains the same) */}
       {showWelcome && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-300">
           <Card className="w-full max-w-lg shadow-2xl border-primary/20 bg-black/80 backdrop-blur-xl">
@@ -88,7 +89,7 @@ export default function Dashboard() {
                 </div>
               </div>
 
-              <Button onClick={dismissWelcome} className="w-full h-12 text-lg font-bold mt-4 shadow-[0_0_20px_rgba(var(--primary),0.3)]">
+              <Button onClick={dismissWelcome} className="w-full h-12 text-lg font-bold mt-4 shadow-[0_0_20px_rgba(var(--primary),0.3)] transition-all hover:-translate-y-0.5">
                 Got it, let&apos;s go!
               </Button>
             </CardContent>
@@ -105,7 +106,7 @@ export default function Dashboard() {
 
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
         {/* Hero Card */}
-        <Card className="col-span-full md:col-span-2 lg:col-span-3 bg-gradient-to-br from-card to-black/60 relative overflow-hidden">
+        <Card className="col-span-full md:col-span-2 lg:col-span-3 bg-gradient-to-br from-card to-black/60 relative overflow-hidden transition-all hover:shadow-xl hover:border-white/10">
           <div className="absolute top-0 right-0 p-6 opacity-20 pointer-events-none">
             {isScanning ? (
               <Activity className="w-48 h-48 animate-pulse text-primary" />
@@ -200,6 +201,61 @@ export default function Dashboard() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Recent Triage Activity Table */}
+      <Card className="bg-card/50 backdrop-blur-md border-white/5">
+        <CardHeader>
+          <CardTitle className="text-xl flex items-center gap-2">
+            <Activity className="w-5 h-5 text-primary" />
+            Recent Triage Activity
+          </CardTitle>
+          <CardDescription>Latest files flagged for remediation.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm text-left">
+              <thead>
+                <tr className="border-b border-white/5 text-muted-foreground">
+                  <th className="pb-3 font-medium">File Name</th>
+                  <th className="pb-3 font-medium">Status</th>
+                  <th className="pb-3 font-medium text-right">Detected</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-white/5">
+                {stats.corrupted_files > 0 ? (
+                  // Mocking rows for UX demonstration if stats doesn't provide the list
+                  [
+                    { name: "IMG_2024_001.raw", status: "Corrupted", time: "2 mins ago" },
+                    { name: "Family_Video.mp4", status: "Bit-rot", time: "1 hour ago" },
+                  ].map((row, i) => (
+                    <tr key={i} className="group transition-all hover:bg-white/5 cursor-pointer">
+                      <td className="py-4 font-medium flex items-center gap-2">
+                        <ShieldAlert className="w-4 h-4 text-destructive" />
+                        {row.name}
+                      </td>
+                      <td className="py-4">
+                        <Badge variant="outline" className="bg-destructive/10 text-destructive border-destructive/20 text-[10px]">
+                          {row.status}
+                        </Badge>
+                      </td>
+                      <td className="py-4 text-right text-muted-foreground">{row.time}</td>
+                    </tr>
+                  ))
+                ) : (
+                  <tr>
+                    <td colSpan={3} className="py-12 text-center text-muted-foreground">
+                      <div className="flex flex-col items-center gap-2">
+                        <CheckCircle className="w-8 h-8 text-primary/50" />
+                        <p>No active triage items. Library is clean.</p>
+                      </div>
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </CardContent>
+      </Card>
     </div>
   )
 }

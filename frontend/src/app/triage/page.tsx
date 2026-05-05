@@ -4,7 +4,7 @@ import * as React from "react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
-import { ShieldAlert, Cpu, CheckCircle } from "lucide-react"
+import { ShieldAlert, Cpu, CheckCircle, ShieldCheck } from "lucide-react"
 import { AIRepairDialog } from "@/components/AIRepairDialog"
 import { useAuth } from "@/context/AuthContext"
 
@@ -63,15 +63,28 @@ export default function TriageGallery() {
       </div>
 
       {corruptedFiles.length === 0 ? (
-        <div className="flex flex-col items-center justify-center p-12 text-center border rounded-lg border-dashed">
-          <CheckCircle className="w-12 h-12 text-primary mb-4" />
-          <p className="text-lg font-medium">All clear</p>
-          <p className="text-sm text-muted-foreground mt-1">No corrupted files detected in the active library.</p>
+        <div className="flex flex-col items-center justify-center p-20 text-center border border-white/5 bg-white/5 rounded-3xl backdrop-blur-md relative overflow-hidden group">
+          {/* Background Glow */}
+          <div className="absolute inset-0 bg-primary/5 opacity-0 group-hover:opacity-100 transition-opacity duration-1000" />
+          
+          <div className="relative">
+            <div className="absolute inset-0 bg-primary/20 rounded-full blur-3xl animate-pulse" />
+            <ShieldCheck className="w-20 h-20 text-primary relative z-10 animate-pulse" />
+          </div>
+          
+          <h2 className="text-2xl font-bold mt-6 tracking-tight">All Systems Nominal</h2>
+          <p className="text-muted-foreground mt-2 max-w-xs mx-auto">
+            Library is secure. No corruption detected.
+          </p>
+          
+          <Button variant="outline" className="mt-8 gap-2 border-white/10 hover:bg-white/5 transition-all hover:-translate-y-0.5">
+            Run Manual Audit
+          </Button>
         </div>
       ) : (
         <div className="columns-1 md:columns-2 lg:columns-3 gap-4 space-y-4">
           {corruptedFiles.map((file) => (
-            <Card key={file.id} className="break-inside-avoid">
+            <Card key={file.id} className="break-inside-avoid transition-all hover:bg-white/5 hover:border-white/20">
               <CardHeader className="pb-3">
                 <div className="flex justify-between items-start">
                   <Badge variant="destructive" className="mb-2">

@@ -23,9 +23,13 @@ from .core.models import User
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Ensure database tables exist
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
+    # Ensure database tables exist via Alembic auto-migration
+    import asyncio
+    from alembic.config import Config
+    from alembic import command
+
+    alembic_cfg = Config("alembic.ini")
+    await asyncio.to_thread(command.upgrade, alembic_cfg, "head")
 
     # Fetch initial settings from the database
     async with async_session_maker() as session:

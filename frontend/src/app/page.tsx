@@ -3,15 +3,23 @@
 import * as React from "react"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { useSystem } from "@/context/SystemContext"
-import { CheckCircle, ShieldAlert, Cpu, Activity, Clock, HeartPulse, AlertTriangle } from "lucide-react"
+import { CheckCircle, ShieldAlert, Cpu, Activity, Clock, HeartPulse, AlertTriangle, Lightbulb, FolderSearch, ShieldCheck } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
+import { Button } from "@/components/ui/button"
 
 export default function Dashboard() {
   const { stats, loading } = useSystem();
   const { toast } = useToast();
   const [toastShown, setToastShown] = React.useState(false);
+  const [showWelcome, setShowWelcome] = React.useState(false);
 
   React.useEffect(() => {
+    // Check if first run
+    const hasSeenWelcome = localStorage.getItem("kintsugi_welcome_seen");
+    if (!hasSeenWelcome) {
+      setShowWelcome(true);
+    }
+
     if (stats && !stats.watcher_active && !toastShown) {
       toast({
         title: "System Health Degraded",
@@ -22,6 +30,11 @@ export default function Dashboard() {
     }
   }, [stats, toastShown, toast]);
 
+  const dismissWelcome = () => {
+    localStorage.setItem("kintsugi_welcome_seen", "true");
+    setShowWelcome(false);
+  };
+
   if (loading || !stats) {
     return <div className="p-8">Loading dashboard...</div>
   }
@@ -30,7 +43,59 @@ export default function Dashboard() {
   const hasCorruption = stats.corrupted_files > 0;
 
   return (
-    <div className="space-y-6 max-w-5xl mx-auto">
+    <div className="space-y-6 max-w-5xl mx-auto relative">
+      {/* Welcome Modal / Tooltip Overlay */}
+      {showWelcome && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-300">
+          <Card className="w-full max-w-lg shadow-2xl border-primary/20 bg-black/80 backdrop-blur-xl">
+            <CardHeader>
+              <div className="flex items-center gap-3 mb-2">
+                <div className="p-2 bg-primary/20 rounded-lg text-primary">
+                  <Lightbulb className="w-6 h-6" />
+                </div>
+                <CardTitle className="text-2xl">Quick Start Guide</CardTitle>
+              </div>
+              <CardDescription>Your environment is ready. Here is what you can do first:</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex gap-4 p-3 rounded-lg hover:bg-white/5 transition-colors group">
+                <div className="p-2 bg-muted rounded-md group-hover:bg-primary/20 group-hover:text-primary transition-colors h-fit">
+                  <FolderSearch className="w-5 h-5" />
+                </div>
+                <div>
+                  <h4 className="font-semibold">Manual Scan</h4>
+                  <p className="text-sm text-muted-foreground">Head to the <strong>File Browser</strong> in the sidebar to manually trigger a deep scan of any subfolder.</p>
+                </div>
+              </div>
+              
+              <div className="flex gap-4 p-3 rounded-lg hover:bg-white/5 transition-colors group">
+                <div className="p-2 bg-muted rounded-md group-hover:bg-primary/20 group-hover:text-primary transition-colors h-fit">
+                  <ShieldCheck className="w-5 h-5" />
+                </div>
+                <div>
+                  <h4 className="font-semibold">Hot Folders</h4>
+                  <p className="text-sm text-muted-foreground">The system is currently watching your media folder. Any new file added will be instantly analyzed.</p>
+                </div>
+              </div>
+
+              <div className="flex gap-4 p-3 rounded-lg hover:bg-white/5 transition-colors group">
+                <div className="p-2 bg-muted rounded-md group-hover:bg-primary/20 group-hover:text-primary transition-colors h-fit">
+                  <Activity className="w-5 h-5" />
+                </div>
+                <div>
+                  <h4 className="font-semibold">Monitor Health</h4>
+                  <p className="text-sm text-muted-foreground">This dashboard will show real-time stats. If corruption is found, it will appear in the <strong>Triage Gallery</strong>.</p>
+                </div>
+              </div>
+
+              <Button onClick={dismissWelcome} className="w-full h-12 text-lg font-bold mt-4 shadow-[0_0_20px_rgba(var(--primary),0.3)]">
+                Got it, let&apos;s go!
+              </Button>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
       <div>
         <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
         <p className="text-muted-foreground mt-2">

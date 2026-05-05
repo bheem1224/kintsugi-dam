@@ -52,6 +52,9 @@ class SystemSettings(Base):
     maintenance_start: Mapped[str] = mapped_column(String, default="01:00")
     maintenance_end: Mapped[str] = mapped_column(String, default="05:00")
     monitored_directory: Mapped[str] = mapped_column(String, default="/media")
+    triage_directory: Mapped[str] = mapped_column(String, default="/app/data/triage")
+    scan_intensity: Mapped[str] = mapped_column(String, default="eco") # eco, balanced, turbo
+    is_setup_complete: Mapped[bool] = mapped_column(Boolean, default=False)
     auto_restore: Mapped[bool] = mapped_column(Boolean, default=False)
     auto_restore_cloud: Mapped[bool] = mapped_column(Boolean, default=False)
     auto_restore_ai: Mapped[bool] = mapped_column(Boolean, default=False)

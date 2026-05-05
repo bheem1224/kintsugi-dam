@@ -139,6 +139,12 @@ async def update_settings(request: Request, settings_req: SettingsUpdateRequest,
         settings.retention_days = settings_req.retention_days
     if settings_req.snapshot_mount_path is not None:
         settings.snapshot_mount_path = settings_req.snapshot_mount_path
+    if settings_req.triage_directory is not None:
+        settings.triage_directory = settings_req.triage_directory
+    if settings_req.scan_intensity is not None:
+        settings.scan_intensity = settings_req.scan_intensity
+    if settings_req.is_setup_complete is not None:
+        settings.is_setup_complete = settings_req.is_setup_complete
 
     if settings_req.plugins is not None:
         for plugin_name, is_active in settings_req.plugins.items():
@@ -162,6 +168,39 @@ async def get_settings(db: AsyncSession = Depends(get_db), current_user: User = 
         "settings": settings,
         "plugins": {p.name: p.is_active for p in plugins}
     }
+
+
+class PathTestRequest(BaseModel):
+    media_path: str
+    triage_path: str
+
+@router.post("/settings/test-paths")
+async def test_paths(req: PathTestRequest, current_user: User = Depends(get_current_user)):
+    results = {}
+    
+    # Test Media Path (Read Access)
+    if os.path.exists(req.media_path):
+        if os.access(req.media_path, os.R_OK):
+            results["media"] = {"status": "ok", "message": "Read access verified."}
+        else:
+            results["media"] = {"status": "error", "message": "No read access."}
+    else:
+        results["media"] = {"status": "error", "message": "Path does not exist."}
+        
+    # Test Triage Path (Write Access)
+    if not os.path.exists(req.triage_path):
+        try:
+            os.makedirs(req.triage_path, exist_ok=True)
+        except Exception as e:
+            results["triage"] = {"status": "error", "message": f"Cannot create directory: {str(e)}"}
+            return results
+
+    if os.access(req.triage_path, os.W_OK):
+        results["triage"] = {"status": "ok", "message": "Write access verified."}
+    else:
+        results["triage"] = {"status": "error", "message": "No write access."}
+        
+    return results
 
 
 class FSBrowseResponse(BaseModel):

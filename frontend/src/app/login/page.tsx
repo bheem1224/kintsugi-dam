@@ -6,9 +6,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter }
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
-import { Switch } from "@/components/ui/switch"
-import { Shield, Info, CheckCircle2, ChevronRight, HardDrive, ShieldCheck, Zap } from "lucide-react"
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
+import { Badge } from "@/components/ui/badge"
+import { Shield, CheckCircle2, ChevronRight, HardDrive, ShieldCheck, Zap, Activity, MousePointer2 } from "lucide-react"
 import { useRouter } from "next/navigation"
 
 export default function LoginPage() {
@@ -16,23 +15,24 @@ export default function LoginPage() {
   const router = useRouter()
 
   const [setupRequired, setSetupRequired] = React.useState<boolean | null>(null)
-  const [currentStep, setCurrentStep] = React.useState(0) // 0: Check, 1: Admin, 2: Settings, 3: Demo, 4: Success
+  const [adminExists, setAdminExists] = React.useState(false)
+  const [currentStep, setCurrentStep] = React.useState(0) // 0: Check, 1: Welcome/Admin, 2: Paths, 3: Scan Settings, 4: Success
 
   // Admin Provisioning State
   const [username, setUsername] = React.useState("")
   const [email, setEmail] = React.useState("")
   const [password, setPassword] = React.useState("")
+  const [confirmPassword, setConfirmPassword] = React.useState("")
   const [error, setError] = React.useState("")
   const [loading, setLoading] = React.useState(false)
 
-  // Settings State
-  const [monitoredDirectory, setMonitoredDirectory] = React.useState("/media")
-  const [autoRestore, setAutoRestore] = React.useState(false)
-  const [autoRepair, setAutoRepair] = React.useState(false)
-  const [retentionDays, setRetentionDays] = React.useState(90)
+  // Step 2: Paths State
+  const [mediaPath, setMediaPath] = React.useState("/media")
+  const [triagePath, setTriagePath] = React.useState("/app/data/triage")
+  const [pathTestResults, setPathTestResults] = React.useState<{media?: {status: string, message: string}, triage?: {status: string, message: string}} | null>(null)
 
-  // Demo State
-  const [demoState, setDemoState] = React.useState<"initial" | "corrupted" | "restored">("initial")
+  // Step 3: Scan Settings
+  const [scanIntensity, setScanIntensity] = React.useState<"eco" | "balanced" | "turbo">("eco")
 
   React.useEffect(() => {
     const checkStatus = async () => {
@@ -41,15 +41,22 @@ export default function LoginPage() {
         if (res.ok) {
           const data = await res.json()
           setSetupRequired(data.setup_required)
+          setAdminExists(data.admin_exists)
+          
           if (data.setup_required) {
-            setCurrentStep(1)
+            const token = localStorage.getItem("token")
+            if (token && data.admin_exists) {
+              setCurrentStep(2) // Skip to paths if already logged in/registered
+            } else {
+              setCurrentStep(1)
+            }
           }
         } else {
-          setSetupRequired(false) // Fallback
+          setSetupRequired(false)
         }
       } catch (err) {
         console.error("Failed to fetch setup status", err)
-        setSetupRequired(false) // Fallback
+        setSetupRequired(false)
       }
     }
     checkStatus()
@@ -85,8 +92,12 @@ export default function LoginPage() {
     }
   }
 
-  const handleRegister = async (e: React.FormEvent) => {
+  const handleAdminCreation = async (e: React.FormEvent) => {
     e.preventDefault()
+    if (password !== confirmPassword) {
+      setError("Passwords do not match")
+      return
+    }
     setError("")
     setLoading(true)
 
@@ -99,7 +110,7 @@ export default function LoginPage() {
 
       if (res.ok) {
         const data = await res.json()
-        login(data.access_token) // Log them in to get token for next steps
+        localStorage.setItem("token", data.access_token) // Stash for setup steps
         setCurrentStep(2)
       } else {
         const data = await res.json()
@@ -112,11 +123,34 @@ export default function LoginPage() {
     }
   }
 
-  const handleSaveSettings = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setError("")
+  const testPaths = async () => {
     setLoading(true)
+    try {
+      const res = await fetch("/api/settings/test-paths", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${localStorage.getItem("token")}`
+        },
+        body: JSON.stringify({ media_path: mediaPath, triage_path: triagePath })
+      })
+      if (res.ok) {
+        const data = await res.json()
+        setPathTestResults(data)
+      }
+    } catch (err) {
+      setError("Failed to test paths.")
+    } finally {
+      setLoading(false)
+    }
+  }
 
+  const savePaths = () => {
+    setCurrentStep(3)
+  }
+
+  const finalizeSetup = async () => {
+    setLoading(true)
     try {
       const res = await fetch("/api/settings", {
         method: "POST",
@@ -125,17 +159,15 @@ export default function LoginPage() {
           "Authorization": `Bearer ${localStorage.getItem("token")}`
         },
         body: JSON.stringify({
-          monitored_directory: monitoredDirectory,
-          auto_restore: autoRestore,
-          auto_repair: autoRepair,
-          retention_days: retentionDays
+          monitored_directory: mediaPath,
+          triage_directory: triagePath,
+          scan_intensity: scanIntensity,
+          is_setup_complete: true
         })
       })
 
       if (res.ok) {
-        setCurrentStep(3)
-        // Start demo animation sequence
-        setTimeout(() => setDemoState("corrupted"), 1500)
+        setCurrentStep(4)
       } else {
         const data = await res.json()
         setError(data.detail || "Failed to save settings")
@@ -147,22 +179,10 @@ export default function LoginPage() {
     }
   }
 
-  const handleDemoRestore = () => {
-    setDemoState("restored")
-    setTimeout(() => {
-      setCurrentStep(4)
-      setTimeout(() => {
-        router.push("/browser")
-      }, 2000)
-    }, 2000)
-  }
-
-
   if (setupRequired === null) {
     return <div className="min-h-screen flex items-center justify-center bg-background"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div></div>
   }
 
-  // STANDARD LOGIN (Setup already complete)
   if (!setupRequired) {
     return (
       <div className="min-h-screen w-full flex items-center justify-center bg-[radial-gradient(circle_at_center_top,_#1a1a1a_0%,_hsl(var(--background))_70%)] relative">
@@ -200,188 +220,200 @@ export default function LoginPage() {
     )
   }
 
-  // WIZARD UI
   return (
     <div className="min-h-screen w-full flex items-center justify-center bg-[radial-gradient(circle_at_center_top,_#1a1a1a_0%,_hsl(var(--background))_70%)] relative">
       <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[800px] bg-primary/5 rounded-full blur-[120px] pointer-events-none" />
 
-      <div className="w-full max-w-xl z-10 px-4">
+      <div className="w-full max-w-2xl z-10 px-4">
         {currentStep < 4 && (
-          <div className="flex flex-col items-center mb-8">
+          <div className="flex flex-col items-center mb-8 text-center">
             <div className="p-4 bg-black/40 rounded-2xl border border-white/10 backdrop-blur-md mb-4 shadow-xl">
               <Zap className="w-10 h-10 text-primary" />
             </div>
-            <h1 className="text-3xl font-bold tracking-tight">Welcome to Kintsugi-DAM</h1>
-            <p className="text-muted-foreground mt-2 text-center">Let's get your secure environment set up.</p>
+            <h1 className="text-3xl font-bold tracking-tight">Kintsugi Setup Wizard</h1>
+            <p className="text-muted-foreground mt-2">Let&apos;s build your library&apos;s foundation.</p>
 
-            {/* Progress indicators */}
             <div className="flex gap-2 mt-6">
               {[1, 2, 3].map((step) => (
-                <div key={step} className={`h-2 w-16 rounded-full transition-colors ${currentStep >= step ? 'bg-primary' : 'bg-white/10'}`} />
+                <div key={step} className={`h-1.5 w-20 rounded-full transition-all duration-500 ${currentStep >= step ? 'bg-primary shadow-[0_0_10px_rgba(var(--primary),0.5)]' : 'bg-white/10'}`} />
               ))}
             </div>
           </div>
         )}
 
-        {/* STEP 1: Admin Provisioning */}
+        {/* STEP 1: Welcome & Admin */}
         {currentStep === 1 && (
           <Card className="shadow-2xl border-white/10 bg-black/50 backdrop-blur-xl animate-in fade-in slide-in-from-bottom-4 duration-500">
             <CardHeader>
-              <CardTitle className="flex items-center gap-2"><ShieldCheck className="w-5 h-5 text-primary"/> Step 1: Admin Provisioning</CardTitle>
-              <CardDescription>Create the master administrative account. Self-registration will be locked after this step.</CardDescription>
+              <CardTitle className="flex items-center gap-2"><ShieldCheck className="w-5 h-5 text-primary"/> Welcome & Admin Creation</CardTitle>
+              <CardDescription>
+                {adminExists 
+                  ? "An administrator already exists. Please sign in to continue setup." 
+                  : "Kintsugi needs an admin account to protect the system and manage your assets."}
+              </CardDescription>
             </CardHeader>
             <CardContent>
-              <form id="register-form" onSubmit={handleRegister} className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="username">Admin Username</Label>
-                  <Input id="username" value={username} onChange={(e) => setUsername(e.target.value)} placeholder="admin" required />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="email">Recovery Email</Label>
-                  <Input id="email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="admin@example.com" required />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="password">Secure Password</Label>
-                  <Input id="password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="••••••••" required />
-                </div>
-                {error && <div className="p-3 bg-destructive/20 border border-destructive/30 text-destructive text-sm rounded-md">{error}</div>}
-              </form>
+              {adminExists ? (
+                <form id="login-form-setup" onSubmit={handleLogin} className="space-y-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="username">Username</Label>
+                    <Input id="username" value={username} onChange={(e) => setUsername(e.target.value)} placeholder="admin" required />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="password">Password</Label>
+                    <Input id="password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="••••••••" required />
+                  </div>
+                  {error && <div className="p-3 bg-destructive/20 border border-destructive/30 text-destructive text-sm rounded-md">{error}</div>}
+                </form>
+              ) : (
+                <form id="admin-form" onSubmit={handleAdminCreation} className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2 col-span-2">
+                    <Label htmlFor="username">Admin Username</Label>
+                    <Input id="username" value={username} onChange={(e) => setUsername(e.target.value)} placeholder="e.g. curator_alpha" required />
+                  </div>
+                  <div className="space-y-2 col-span-2">
+                    <Label htmlFor="email">Email Address</Label>
+                    <Input id="email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="admin@kintsugi.local" required />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="password">Password</Label>
+                    <Input id="password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="••••••••" required />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="confirm">Confirm Password</Label>
+                    <Input id="confirm" type="password" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} placeholder="••••••••" required />
+                  </div>
+                  {error && <div className="p-3 bg-destructive/20 border border-destructive/30 text-destructive text-sm rounded-md col-span-2">{error}</div>}
+                </form>
+              )}
             </CardContent>
             <CardFooter>
-               <Button type="submit" form="register-form" className="w-full" disabled={loading}>
-                 {loading ? "Provisioning..." : "Create Admin Account"} <ChevronRight className="w-4 h-4 ml-2" />
-               </Button>
+              {adminExists ? (
+                <Button type="submit" form="login-form-setup" className="w-full h-12 text-lg font-semibold" disabled={loading}>
+                  {loading ? "Signing In..." : "Sign In to Continue"} <ChevronRight className="ml-2 w-5 h-5" />
+                </Button>
+              ) : (
+                <Button type="submit" form="admin-form" className="w-full h-12 text-lg font-semibold" disabled={loading}>
+                  {loading ? "Creating..." : "Create Admin Account"} <ChevronRight className="ml-2 w-5 h-5" />
+                </Button>
+              )}
             </CardFooter>
           </Card>
         )}
 
-        {/* STEP 2: Core Configuration */}
+        {/* STEP 2: Path Configuration */}
         {currentStep === 2 && (
           <Card className="shadow-2xl border-white/10 bg-black/50 backdrop-blur-xl animate-in fade-in slide-in-from-bottom-4 duration-500">
             <CardHeader>
-              <CardTitle className="flex items-center gap-2"><HardDrive className="w-5 h-5 text-primary"/> Step 2: Core Configuration</CardTitle>
-              <CardDescription>Configure where Kintsugi-DAM looks for files and how it handles corruption.</CardDescription>
+              <CardTitle className="flex items-center gap-2"><HardDrive className="w-5 h-5 text-primary"/> Step 2: Path Configuration</CardTitle>
+              <CardDescription>Define where your assets live and where Kintsugi should quarantine issues.</CardDescription>
             </CardHeader>
-            <CardContent>
-              <form id="settings-form" onSubmit={handleSaveSettings} className="space-y-6">
-
+            <CardContent className="space-y-6">
+              <div className="space-y-4 p-4 bg-white/5 rounded-xl border border-white/10">
                 <div className="space-y-2">
-                  <Label htmlFor="monitoredDirectory">Monitored Directory Path</Label>
-                  <Input id="monitoredDirectory" value={monitoredDirectory} onChange={(e) => setMonitoredDirectory(e.target.value)} placeholder="/media" required />
-                  <p className="text-xs text-muted-foreground">The main library or watchdog target.</p>
-                </div>
-
-                <div className="flex items-center justify-between rounded-lg border border-white/10 p-4 bg-black/20">
-                  <div className="space-y-0.5">
-                    <Label className="text-base">Auto-Restore from Backups</Label>
-                    <p className="text-sm text-muted-foreground">Automatically pull clean files from Snapshots/Cloud when corruption is detected.</p>
+                  <div className="flex justify-between items-center">
+                    <Label htmlFor="mediaPath">Media Directory (Watch Folder)</Label>
+                    {pathTestResults?.media && (
+                      <span className={`text-xs flex items-center gap-1 ${pathTestResults.media.status === 'ok' ? 'text-green-400' : 'text-red-400'}`}>
+                        {pathTestResults.media.status === 'ok' ? <CheckCircle2 className="w-3 h-3"/> : "!"} {pathTestResults.media.message}
+                      </span>
+                    )}
                   </div>
-                  <Switch checked={autoRestore} onCheckedChange={setAutoRestore} />
-                </div>
-
-                <div className="flex items-center justify-between rounded-lg border border-white/10 p-4 bg-black/20">
-                  <div className="space-y-0.5">
-                    <Label className="text-base">Auto-Quarantine Corruption</Label>
-                    <p className="text-sm text-muted-foreground">Automatically move bad files to the Triage folder.</p>
-                  </div>
-                  <Switch checked={autoRepair} onCheckedChange={setAutoRepair} />
+                  <Input id="mediaPath" value={mediaPath} onChange={(e) => setMediaPath(e.target.value)} placeholder="/media" />
+                  <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Where your existing library is mounted</p>
                 </div>
 
                 <div className="space-y-2">
-                  <div className="flex items-center gap-2">
-                    <Label htmlFor="retentionDays">Retention Policy (Days)</Label>
-                    <TooltipProvider>
-                      <Tooltip>
-                        <TooltipTrigger type="button"><Info className="w-4 h-4 text-muted-foreground hover:text-foreground" /></TooltipTrigger>
-                        <TooltipContent className="max-w-xs">
-                          <p>To prevent accidental data loss, corrupted originals are kept in a local Triage folder before permanent deletion. 90 days allows ample time for manual review if needed.</p>
-                        </TooltipContent>
-                      </Tooltip>
-                    </TooltipProvider>
+                   <div className="flex justify-between items-center">
+                    <Label htmlFor="triagePath">Triage Directory (Quarantine)</Label>
+                    {pathTestResults?.triage && (
+                      <span className={`text-xs flex items-center gap-1 ${pathTestResults.triage.status === 'ok' ? 'text-green-400' : 'text-red-400'}`}>
+                        {pathTestResults.triage.status === 'ok' ? <CheckCircle2 className="w-3 h-3"/> : "!"} {pathTestResults.triage.message}
+                      </span>
+                    )}
                   </div>
-                  <Input id="retentionDays" type="number" min="1" value={retentionDays} onChange={(e) => setRetentionDays(parseInt(e.target.value) || 90)} required />
+                  <Input id="triagePath" value={triagePath} onChange={(e) => setTriagePath(e.target.value)} placeholder="/app/data/triage" />
+                  <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Where suspicious files are moved for review</p>
                 </div>
+              </div>
 
-                {error && <div className="p-3 bg-destructive/20 border border-destructive/30 text-destructive text-sm rounded-md">{error}</div>}
-              </form>
+              <div className="flex justify-center">
+                <Button variant="outline" size="sm" onClick={testPaths} disabled={loading} className="gap-2 border-primary/20 hover:bg-primary/10">
+                  <Activity className="w-4 h-4" /> Test Paths & Permissions
+                </Button>
+              </div>
             </CardContent>
-            <CardFooter>
-               <Button type="submit" form="settings-form" className="w-full" disabled={loading}>
-                 {loading ? "Saving..." : "Save Configuration"} <ChevronRight className="w-4 h-4 ml-2" />
-               </Button>
+            <CardFooter className="flex gap-3">
+              <Button variant="ghost" onClick={() => setCurrentStep(1)}>Back</Button>
+              <Button className="flex-1 h-12 text-lg font-semibold" onClick={savePaths} disabled={!pathTestResults || pathTestResults.media?.status !== 'ok' || pathTestResults.triage?.status !== 'ok'}>
+                Continue <ChevronRight className="ml-2 w-5 h-5" />
+              </Button>
             </CardFooter>
           </Card>
         )}
 
-        {/* STEP 3: Interactive Demo */}
+        {/* STEP 3: Scan Settings & Freemium */}
         {currentStep === 3 && (
-          <Card className="shadow-2xl border-white/10 bg-black/50 backdrop-blur-xl animate-in fade-in slide-in-from-bottom-4 duration-500 overflow-hidden">
+          <Card className="shadow-2xl border-white/10 bg-black/50 backdrop-blur-xl animate-in fade-in slide-in-from-bottom-4 duration-500">
             <CardHeader>
-              <CardTitle>Step 3: Interactive Demo</CardTitle>
-              <CardDescription>Let's simulate a corruption event so you know what to do.</CardDescription>
+              <CardTitle className="flex items-center gap-2"><Zap className="w-5 h-5 text-primary"/> Step 3: Initial Scan Settings</CardTitle>
+              <CardDescription>Choose how aggressively Kintsugi should analyze your library.</CardDescription>
             </CardHeader>
-            <CardContent className="space-y-6">
-              <div className="relative w-full aspect-video rounded-xl overflow-hidden border border-white/10 bg-black flex items-center justify-center">
-                 {/* Mock Image */}
-                 <div className="absolute inset-0 bg-cover bg-center" style={{backgroundImage: "url('https://images.unsplash.com/photo-1682687220742-aba13b6e50ba?w=800&q=80')"}}></div>
-
-                 {/* Glitch Overlay */}
-                 {demoState === "corrupted" && (
-                   <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0IiBoZWlnaHQ9IjQiPgo8cmVjdCB3aWR0aD0iNCIgaGVpZ2h0PSI0IiBmaWxsPSIjZmZmIiBmaWxsLW9wYWNpdHk9IjAuMSIvPgo8L3N2Zz4=')] animate-pulse mix-blend-overlay opacity-80" style={{ backdropFilter: 'sepia(100%) hue-rotate(90deg) saturate(300%)' }}></div>
-                 )}
-
-                 {/* Restored Overlay */}
-                 {demoState === "restored" && (
-                    <div className="absolute inset-0 bg-primary/20 backdrop-blur-[2px] flex items-center justify-center animate-in fade-in duration-500">
-                      <div className="bg-black/60 text-white px-6 py-3 rounded-full flex items-center gap-2 font-medium backdrop-blur-md">
-                        <CheckCircle2 className="w-5 h-5 text-green-400" /> Restored Successfully
+            <CardContent className="space-y-4">
+               {[
+                 { id: "eco", title: "Eco Mode", desc: "Standard hashing & metadata checks. Lowest CPU impact.", badge: "Free" },
+                 { id: "balanced", title: "Balanced", desc: "Deep bitstream analysis & structural validation.", badge: "Pro", locked: true },
+                 { id: "turbo", title: "Turbo", desc: "Full frame-by-frame AI perceptual hashing & repair prep.", badge: "Pro", locked: true }
+               ].map((opt) => (
+                 <div 
+                   key={opt.id}
+                   onClick={() => !opt.locked && setScanIntensity(opt.id as any)}
+                   className={`relative p-4 rounded-xl border transition-all cursor-pointer flex items-center justify-between ${scanIntensity === opt.id ? 'bg-primary/10 border-primary shadow-[0_0_15px_rgba(var(--primary),0.2)]' : 'bg-white/5 border-white/10 hover:border-white/20'}`}
+                 >
+                   <div className="flex items-center gap-4">
+                      <div className={`p-2 rounded-lg ${scanIntensity === opt.id ? 'bg-primary text-primary-foreground' : 'bg-white/10 text-muted-foreground'}`}>
+                        <Activity className="w-5 h-5" />
                       </div>
-                    </div>
-                 )}
-
-                 <div className="absolute bottom-4 left-4 bg-black/60 px-3 py-1 rounded-md text-sm backdrop-blur-sm">
-                   Family_Vacation.jpg
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <span className="font-semibold">{opt.title}</span>
+                          <Badge variant={opt.locked ? "secondary" : "outline"} className={opt.locked ? "bg-amber-500/10 text-amber-500 border-amber-500/20" : ""}>{opt.badge}</Badge>
+                        </div>
+                        <p className="text-sm text-muted-foreground">{opt.desc}</p>
+                      </div>
+                   </div>
+                   {opt.locked && <Shield className="w-5 h-5 text-muted-foreground/30" />}
+                   {scanIntensity === opt.id && <CheckCircle2 className="w-5 h-5 text-primary" />}
                  </div>
-              </div>
-
-              {demoState === "corrupted" && (
-                <div className="p-4 bg-destructive/10 border border-destructive/20 rounded-xl animate-in slide-in-from-bottom-2 fade-in duration-300">
-                  <div className="flex items-start gap-3">
-                     <div className="p-2 bg-destructive/20 rounded-lg text-destructive"><Zap className="w-5 h-5" /></div>
-                     <div className="flex-1">
-                       <h4 className="font-semibold text-destructive">Corruption Detected!</h4>
-                       <p className="text-sm text-muted-foreground mt-1">Valid Snapshot Backup Found in /snapshots/daily</p>
-                       <Button onClick={handleDemoRestore} className="mt-3 bg-primary text-primary-foreground hover:bg-primary/90 shadow-[0_0_20px_rgba(var(--primary),0.5)] animate-pulse border border-primary/50">
-                          Restore File Now
-                       </Button>
-                     </div>
-                  </div>
-                </div>
-              )}
-
-              {demoState === "restored" && (
-                <div className="p-4 bg-green-500/10 border border-green-500/20 rounded-xl animate-in fade-in duration-500 text-green-400 text-sm">
-                   <p className="flex items-center gap-2"><CheckCircle2 className="w-4 h-4"/> Restored instantly! The corrupted artifact has been safely moved to Triage based on your {retentionDays}-day retention policy.</p>
-                </div>
-              )}
-
-              {demoState === "initial" && (
-                <div className="text-center text-muted-foreground animate-pulse text-sm">Simulating watchdog detection...</div>
-              )}
-
+               ))}
             </CardContent>
+            <CardFooter className="flex gap-3">
+              <Button variant="ghost" onClick={() => setCurrentStep(2)}>Back</Button>
+              <Button className="flex-1 h-12 text-lg font-semibold" onClick={finalizeSetup} disabled={loading}>
+                {loading ? "Saving..." : "Finalize Setup"} <ChevronRight className="ml-2 w-5 h-5" />
+              </Button>
+            </CardFooter>
           </Card>
         )}
 
         {/* STEP 4: Success */}
         {currentStep === 4 && (
-          <div className="flex flex-col items-center justify-center text-center space-y-6 animate-in zoom-in duration-700">
+          <div className="flex flex-col items-center justify-center text-center space-y-8 py-12 animate-in zoom-in duration-700">
             <div className="relative">
-              <div className="absolute inset-0 bg-primary/20 rounded-full blur-3xl scale-150 animate-pulse" />
-              <CheckCircle2 className="w-32 h-32 text-primary relative z-10" />
+              <div className="absolute inset-0 bg-primary/30 rounded-full blur-[100px] animate-pulse scale-150" />
+              <div className="relative z-10 h-32 w-32 rounded-full bg-black/40 border-2 border-primary flex items-center justify-center shadow-[0_0_50px_rgba(var(--primary),0.4)]">
+                <CheckCircle2 className="w-20 h-20 text-primary" />
+              </div>
             </div>
-            <h2 className="text-4xl font-bold tracking-tight">All Set!</h2>
-            <p className="text-xl text-muted-foreground">Your library is now protected by Kintsugi-DAM.</p>
+            
+            <div className="space-y-2">
+              <h2 className="text-5xl font-extrabold tracking-tighter">Setup Complete</h2>
+              <p className="text-xl text-muted-foreground">Kintsugi-DAM is now guarding your digital legacy.</p>
+            </div>
+
+            <Button size="lg" className="h-14 px-10 text-xl font-bold rounded-full shadow-[0_0_30px_rgba(var(--primary),0.4)] hover:shadow-[0_0_50px_rgba(var(--primary),0.6)] transition-all" onClick={() => login(localStorage.getItem("token")!)}>
+              Launch Dashboard
+            </Button>
           </div>
         )}
 

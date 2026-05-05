@@ -65,3 +65,6 @@ class SettingsUpdateRequest(BaseModel):
     ai_use_kintsugi_cloud: Optional[bool] = None
     retention_days: Optional[int] = None
     snapshot_mount_path: Optional[str] = None
+    triage_directory: Optional[str] = None
+    scan_intensity: Optional[str] = None
+    is_setup_complete: Optional[bool] = None

@@ -26,7 +26,14 @@ async def lifespan(app: FastAPI):
     async with async_session_maker() as session:
         result = await session.execute(select(SystemSettings).where(SystemSettings.id == 1))
         settings = result.scalars().first()
-        monitored_directory = settings.monitored_directory if settings else "/media"
+        
+        if not settings:
+            settings = SystemSettings(id=1)
+            session.add(settings)
+            await session.commit()
+            await session.refresh(settings)
+            
+        monitored_directory = settings.monitored_directory
 
     app.state.scheduler = start_scheduler(monitored_directory, time(1, 0), time(5, 0))
 

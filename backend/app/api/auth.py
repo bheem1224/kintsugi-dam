@@ -26,9 +26,20 @@ class UserProfile(BaseModel):
 
 @router.get("/status")
 async def get_system_status(db: AsyncSession = Depends(get_db)):
-    result = await db.execute(select(User).limit(1))
-    user_exists = result.scalars().first() is not None
-    return {"setup_required": not user_exists}
+    # Check if ANY user exists
+    user_result = await db.execute(select(User).limit(1))
+    user_exists = user_result.scalars().first() is not None
+    
+    # Check if setup is complete
+    from ..core.models import SystemSettings
+    settings_result = await db.execute(select(SystemSettings).where(SystemSettings.id == 1))
+    settings = settings_result.scalars().first()
+    setup_complete = settings.is_setup_complete if settings else False
+    
+    return {
+        "setup_required": not (user_exists and setup_complete),
+        "admin_exists": user_exists
+    }
 
 @router.post("/register", response_model=Token)
 async def register(user: UserCreate, db: AsyncSession = Depends(get_db)):

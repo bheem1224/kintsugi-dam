@@ -9,7 +9,8 @@ from watchdog.events import FileSystemEventHandler, FileModifiedEvent, FileCreat
 
 from .database import async_session_maker
 from .models import MediaFile
-from .scanner import _process_single_file
+from .scanner import FileScanner
+from pathlib import Path
 from sqlalchemy import select
 
 logger = logging.getLogger(__name__)

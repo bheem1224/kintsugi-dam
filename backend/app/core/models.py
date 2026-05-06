@@ -15,7 +15,7 @@ class MediaFile(Base):
     mtime: Mapped[float] = mapped_column(Float)
     size: Mapped[int] = mapped_column(Integer)
     sha256_hash: Mapped[Optional[str]] = mapped_column(String, nullable=True)
-    last_hashed_date: Mapped[Optional[datetime]] = mapped_column(
+    last_scanned_at: Mapped[Optional[datetime]] = mapped_column(
         DateTime, nullable=True
     )
     state: Mapped[str] = mapped_column(String, default="clean")

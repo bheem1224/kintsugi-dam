@@ -23,9 +23,13 @@ from .core.models import User
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Ensure database tables exist
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
+    # Ensure database tables exist via Alembic auto-migration
+    import asyncio
+    from alembic.config import Config
+    from alembic import command
+
+    alembic_cfg = Config("alembic.ini")
+    await asyncio.to_thread(command.upgrade, alembic_cfg, "head")
 
     # Fetch initial settings from the database
     async with async_session_maker() as session:
@@ -67,7 +71,12 @@ async def lifespan(app: FastAPI):
                 except OSError as e:
                     logger.warning(f"Could not remove booting flag: {e}")
 
-    app.state.scheduler = start_scheduler(monitored_directory, time(1, 0), time(5, 0))
+        app.state.scheduler = start_scheduler()
+
+    # Launch the continuous background LRU scanning daemon
+    from .core.scheduler import run_lru_daemon
+    import asyncio
+    app.state.lru_daemon_task = asyncio.create_task(run_lru_daemon(async_session_maker))
 
     app.state.watcher = WatcherService()
     app.state.watcher.start(monitored_directory)
@@ -75,6 +84,8 @@ async def lifespan(app: FastAPI):
     yield
     app.state.watcher.stop()
     app.state.scheduler.shutdown()
+    if hasattr(app.state, 'lru_daemon_task'):
+        app.state.lru_daemon_task.cancel()
 
 app = FastAPI(title="Kintsugi-DAM API", lifespan=lifespan)
 

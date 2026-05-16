@@ -17,7 +17,7 @@ from .core.database import async_session_maker, engine, Base
 from .core.models import SystemSettings
 from sqlalchemy import select
 
-from .core.plugins import PluginManager
+from .core.module_loader import module_loader
 from .core.nexus import nexus_bus
 from .core.models import User
 
@@ -62,9 +62,7 @@ async def lifespan(app: FastAPI):
                     f.write("booting")
 
                 nexus_bus.initialize()
-                plugin_manager = PluginManager(session)
-                await plugin_manager.initialize_plugins()
-                app.state.plugin_manager = plugin_manager
+                await module_loader.boot_plugins(session)
 
                 try:
                     os.remove(booting_flag)

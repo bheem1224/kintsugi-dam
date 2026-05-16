@@ -1,7 +1,7 @@
 from datetime import datetime
-from typing import Optional
+from typing import Optional, List
 
-from sqlalchemy import String, Float, Integer, Boolean, DateTime
+from sqlalchemy import String, Float, Integer, Boolean, DateTime, JSON
 from sqlalchemy.orm import Mapped, mapped_column
 
 from .database import Base
@@ -62,6 +62,7 @@ class SystemSettings(Base):
     ai_use_kintsugi_cloud: Mapped[bool] = mapped_column(Boolean, default=True)
     retention_days: Mapped[int] = mapped_column(Integer, default=90)
     snapshot_mount_path: Mapped[str] = mapped_column(String, default="/snapshots")
+    enable_3rd_party_plugins: Mapped[bool] = mapped_column(Boolean, default=False)
 
 class User(Base):
     __tablename__ = "users"
@@ -88,4 +89,4 @@ class Plugin(Base):
     source_url: Mapped[Optional[str]] = mapped_column(String, nullable=True)
     is_official: Mapped[bool] = mapped_column(Boolean, default=False)
     type: Mapped[str] = mapped_column(String)
-    is_privileged: Mapped[bool] = mapped_column(Boolean, default=False)
+    permissions: Mapped[Optional[List[str]]] = mapped_column(JSON, nullable=True)

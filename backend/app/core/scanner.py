@@ -84,3 +84,22 @@ class FileScanner:
 
         # Commit the transaction
         await db_session.commit()
+
+    async def scan(self, file_path: Path) -> str:
+        """
+        Runs structural and hash checks without committing to DB.
+        Returns 'HEALTHY' or 'CORRUPTED'.
+        """
+        path_str = str(file_path)
+        if not file_path.exists():
+            return "CORRUPTED"
+
+        try:
+            # Here we just run the hash. Real structural checks (e.g. jpeginfo)
+            # would be called here via plugins.
+            new_hash = await asyncio.to_thread(kintsugi_rs.calculate_blake3, path_str)
+            if not new_hash:
+                return "CORRUPTED"
+            return "HEALTHY"
+        except Exception:
+            return "CORRUPTED"

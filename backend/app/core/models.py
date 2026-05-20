@@ -63,6 +63,8 @@ class SystemSettings(Base):
     retention_days: Mapped[int] = mapped_column(Integer, default=90)
     approved_retention_days: Mapped[int] = mapped_column(Integer, default=30)
     snapshot_mount_path: Mapped[str] = mapped_column(String, default="/snapshots")
+    license_tier: Mapped[str] = mapped_column(String, default="free")
+
     enable_3rd_party_plugins: Mapped[bool] = mapped_column(Boolean, default=False)
 
 class User(Base):

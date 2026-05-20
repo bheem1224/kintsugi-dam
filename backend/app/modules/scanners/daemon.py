@@ -11,20 +11,6 @@ from app.core.scanner import FileScanner
 
 logger = logging.getLogger(__name__)
 
-async def is_pro_tier(db_session: AsyncSession) -> bool:
-    result = await db_session.execute(select(SystemSettings).limit(1))
-    settings = result.scalar_one_or_none()
-    if settings and settings.license_tier in ['pro', 'studio']:
-        return True
-    return False
-
-async def get_max_workers(db_session: AsyncSession) -> int:
-    result = await db_session.execute(select(SystemSettings).limit(1))
-    settings = result.scalar_one_or_none()
-    if settings:
-        return settings.max_workers
-    return 1
-
 async def scanner_worker(queue: asyncio.Queue, scanner: FileScanner):
     while True:
         file_path_str = await queue.get()
@@ -45,16 +31,23 @@ async def scanner_worker(queue: asyncio.Queue, scanner: FileScanner):
 async def run_scanner_daemon(file_paths_generator: AsyncGenerator[str, None]):
     """
     Background scanner daemon that consumes an async generator of file paths.
+    Consolidates settings retrieval and strictly enforces the license tier limit.
     """
     async with SessionLocal() as db_session:
-        pro_tier = await is_pro_tier(db_session)
-        configured_workers = await get_max_workers(db_session)
+        result = await db_session.execute(select(SystemSettings).limit(1))
+        settings = result.scalar_one_or_none()
+        
+        if settings:
+            license_tier = settings.license_tier
+            pro_tier = license_tier in ['pro', 'studio']
+            # CRITICAL: Safely read max_workers only when a Pro or Studio tier is active
+            configured_workers = settings.max_workers if pro_tier else 1
+        else:
+            pro_tier = False
+            configured_workers = 1
 
-    # Determine actual workers
-    num_workers = configured_workers if pro_tier else 1
-
-    # Ensure at least 1 worker and not unbounded
-    num_workers = max(1, min(num_workers, 32))
+    # Determine actual workers and enforce safe limits
+    num_workers = max(1, min(configured_workers, 32))
 
     logger.info(f"Starting scanner daemon with {num_workers} workers (Pro tier: {pro_tier})")
 

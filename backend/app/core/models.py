@@ -62,6 +62,8 @@ class SystemSettings(Base):
     ai_use_kintsugi_cloud: Mapped[bool] = mapped_column(Boolean, default=True)
     retention_days: Mapped[int] = mapped_column(Integer, default=90)
     snapshot_mount_path: Mapped[str] = mapped_column(String, default="/snapshots")
+    license_tier: Mapped[str] = mapped_column(String, default="free")
+
     enable_3rd_party_plugins: Mapped[bool] = mapped_column(Boolean, default=False)
 
 class User(Base):

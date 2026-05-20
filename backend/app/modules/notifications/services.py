@@ -74,15 +74,15 @@ async def handle_auth_required(payload: Dict[str, Any]):
 
         async with async_session_maker() as db_session:
             from sqlalchemy.future import select
-            result = await db_session.execute(select(SystemSettings).where(SystemSettings.id == 1))
-            settings = result.scalars().first()
+            res_discord = await db_session.execute(
+                select(SystemSettings.value).where(SystemSettings.key == "discord_webhook_url")
+            )
+            discord_url = res_discord.scalars().first()
 
-            if not settings:
-                logger.error("System settings not found. Cannot dispatch webhooks.")
-                return
-
-            discord_url = settings.discord_webhook_url
-            slack_url = getattr(settings, "slack_webhook_url", None)
+            res_slack = await db_session.execute(
+                select(SystemSettings.value).where(SystemSettings.key == "slack_webhook_url")
+            )
+            slack_url = res_slack.scalars().first()
 
             if not (discord_url or slack_url):
                 logger.info("No Discord/Slack webhook URLs configured in SystemSettings.")

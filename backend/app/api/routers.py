@@ -8,11 +8,10 @@ from pydantic import BaseModel
 
 from ..core.database import get_db
 from ..core.models import MediaFile, SystemSettings, PluginConfig, User
-from ..core.security import get_current_user
+from ..core.security import get_current_user, require_permission
 from .schemas import MediaFileResponse, AIRepairRequest, AIRepairResponse, SettingsUpdateRequest, PluginPatchRequest, PluginResponse
 from ..core.models import User, Plugin
 from ..core.config import settings as app_settings
-from ..core.security import get_current_user
 
 
 logger = logging.getLogger(__name__)
@@ -112,7 +111,13 @@ async def get_stats(request: Request, db: AsyncSession = Depends(get_db), curren
     }
 
 @router.post("/settings")
-async def update_settings(request: Request, settings_req: SettingsUpdateRequest, db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_user)):
+async def update_settings(
+    request: Request,
+    settings_req: SettingsUpdateRequest,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+    _ = Depends(require_permission("system:write"))
+):
     async def set_kvs(key: str, val):
         if val is None:
             return

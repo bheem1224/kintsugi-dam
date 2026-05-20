@@ -11,6 +11,7 @@ from pydantic import BaseModel
 from app.core.database import get_db
 from app.core.models import User, TriageEntry, MediaFile, SystemSettings
 from app.api.auth import get_current_user
+from app.core.security import require_permission
 from app.core.nexus import nexus_bus
 from app.modules.triage.core import quarantine_file
 
@@ -45,7 +46,8 @@ async def perform_triage_action(
     id: int,
     action_req: ActionRequest,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(get_current_user),
+    _ = Depends(require_permission("triage:approve"))
 ):
     result = await db.execute(select(TriageEntry).where(TriageEntry.id == id))
     entry = result.scalars().first()
@@ -77,7 +79,8 @@ async def upload_replacement(
     id: int,
     file: UploadFile = File(...),
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(get_current_user),
+    _ = Depends(require_permission("triage:approve"))
 ):
     result = await db.execute(select(TriageEntry).where(TriageEntry.id == id))
     entry = result.scalars().first()

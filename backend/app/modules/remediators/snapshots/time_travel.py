@@ -28,15 +28,17 @@ async def remediate_via_snapshots(corrupted_file_path: str) -> bool:
     corrupted_path = Path(corrupted_file_path)
 
     async with SessionLocal() as db_session:
-        result = await db_session.execute(select(SystemSettings).limit(1))
-        settings = result.scalar_one_or_none()
+        res = await db_session.execute(
+            select(SystemSettings.value).where(SystemSettings.key == "snapshot_mount_path")
+        )
+        val = res.scalars().first()
 
-        if not settings:
+        if not val:
             logger.error("System settings not found for snapshot remediation.")
             await nexus_bus.broadcast("remediator:failed", {"path": corrupted_file_path})
             return False
 
-        snapshot_mount_path = Path(settings.snapshot_mount_path)
+        snapshot_mount_path = Path(val)
 
     # Use Heuristic Resolver to get EXACT file paths across all available snapshots (newest to oldest)
     snapshot_versions = await asyncio.to_thread(

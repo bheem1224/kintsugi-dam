@@ -75,10 +75,13 @@ class TestCompliance(unittest.IsolatedAsyncioTestCase):
         mock_session_maker.return_value.__aenter__.return_value = mock_session
         
         # Case A: Free Tier
-        mock_settings_free = SystemSettings(license_tier="free", max_workers=8)
-        mock_execute_result = MagicMock()
-        mock_execute_result.scalar_one_or_none.return_value = mock_settings_free
-        mock_session.execute.return_value = mock_execute_result
+        mock_res_tier = MagicMock()
+        mock_res_tier.scalars.return_value.first.return_value = "free"
+        
+        mock_res_workers = MagicMock()
+        mock_res_workers.scalars.return_value.first.return_value = "8"
+        
+        mock_session.execute.side_effect = [mock_res_tier, mock_res_workers]
         
         # Mock file paths generator
         async def mock_generator():
@@ -91,9 +94,13 @@ class TestCompliance(unittest.IsolatedAsyncioTestCase):
             mock_logger.info.assert_any_call("Starting scanner daemon with 1 workers (Pro tier: False)")
 
         # Case B: Pro Tier
-        mock_session.execute.reset_mock()
-        mock_settings_pro = SystemSettings(license_tier="pro", max_workers=4)
-        mock_execute_result.scalar_one_or_none.return_value = mock_settings_pro
+        mock_res_tier_pro = MagicMock()
+        mock_res_tier_pro.scalars.return_value.first.return_value = "pro"
+        
+        mock_res_workers_pro = MagicMock()
+        mock_res_workers_pro.scalars.return_value.first.return_value = "4"
+        
+        mock_session.execute.side_effect = [mock_res_tier_pro, mock_res_workers_pro]
         
         with patch("app.modules.scanners.daemon.logger") as mock_logger:
             await run_scanner_daemon(mock_generator())

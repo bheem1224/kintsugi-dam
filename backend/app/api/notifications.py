@@ -2,13 +2,13 @@ import logging
 from datetime import datetime
 from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 
 from app.core.database import get_db
-from app.core.models import ApiKey
+from app.core.models import ApiKey, User
 from app.core.nexus import nexus_bus
 from app.core.security import verify_password
 
@@ -19,6 +19,7 @@ router = APIRouter(prefix="/api/triage", tags=["notifications", "triage"])
 security = HTTPBearer(auto_error=False)
 
 async def get_authorized_api_key(
+    request: Request,
     credentials: Optional[HTTPAuthorizationCredentials] = Depends(security),
     db: AsyncSession = Depends(get_db)
 ) -> ApiKey:
@@ -56,6 +57,25 @@ async def get_authorized_api_key(
     # Check expiration
     if valid_key.expires_at and valid_key.expires_at < datetime.now():
         raise HTTPException(status_code=401, detail="API Key has expired")
+
+    # Check IP allowlist of the key owner
+    user_res = await db.execute(select(User).where(User.id == valid_key.user_id))
+    user = user_res.scalars().first()
+    allowed_ips = user.allowed_ips if user else []
+
+    if allowed_ips:
+        from app.core.security import ip_in_cidr
+        client_ip = request.client.host
+        ip_allowed = False
+        for cidr in allowed_ips:
+            if ip_in_cidr(client_ip, cidr):
+                ip_allowed = True
+                break
+        if not ip_allowed:
+            raise HTTPException(status_code=403, detail="Forbidden: IP address not allowed")
+
+    request.state.api_key = valid_key
+    request.state.allowed_ips = allowed_ips
 
     # Check permissions
     if "triage:authorize" not in valid_key.permissions:

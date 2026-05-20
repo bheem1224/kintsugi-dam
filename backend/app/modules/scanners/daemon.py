@@ -34,17 +34,22 @@ async def run_scanner_daemon(file_paths_generator: AsyncGenerator[str, None]):
     Consolidates settings retrieval and strictly enforces the license tier limit.
     """
     async with SessionLocal() as db_session:
-        result = await db_session.execute(select(SystemSettings).limit(1))
-        settings = result.scalar_one_or_none()
-        
-        if settings:
-            license_tier = settings.license_tier
-            pro_tier = license_tier in ['pro', 'studio']
-            # CRITICAL: Safely read max_workers only when a Pro or Studio tier is active
-            configured_workers = settings.max_workers if pro_tier else 1
-        else:
-            pro_tier = False
+        res_tier = await db_session.execute(
+            select(SystemSettings.value).where(SystemSettings.key == "license_tier")
+        )
+        license_tier = res_tier.scalars().first() or "free"
+
+        res_workers = await db_session.execute(
+            select(SystemSettings.value).where(SystemSettings.key == "max_workers")
+        )
+        val_workers = res_workers.scalars().first()
+        try:
+            configured_workers = int(val_workers) if val_workers else 1
+        except ValueError:
             configured_workers = 1
+
+        pro_tier = license_tier in ['pro', 'studio']
+        configured_workers = configured_workers if pro_tier else 1
 
     # Determine actual workers and enforce safe limits
     num_workers = max(1, min(configured_workers, 32))

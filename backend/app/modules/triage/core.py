@@ -73,7 +73,7 @@ async def quarantine_file(db_session: AsyncSession, media_file_id: int) -> Tuple
     triage_entry = triage_result.scalars().first()
 
     if triage_entry:
-        triage_entry.state = "QUARANTINED"
+        triage_entry.status = "QUARANTINED"
         triage_entry.quarantine_path = quarantine_path
         triage_entry.expires_at = None
     else:
@@ -81,7 +81,7 @@ async def quarantine_file(db_session: AsyncSession, media_file_id: int) -> Tuple
             media_file_id=media_file_id,
             original_path=original_path,
             quarantine_path=quarantine_path,
-            state="QUARANTINED"
+            status="QUARANTINED"
         )
         db_session.add(triage_entry)
 

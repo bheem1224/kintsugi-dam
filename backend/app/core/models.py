@@ -99,6 +99,6 @@ class TriageEntry(Base):
     media_file_id: Mapped[int] = mapped_column(Integer, index=True)
     original_path: Mapped[str] = mapped_column(String)
     quarantine_path: Mapped[str] = mapped_column(String)
-    state: Mapped[str] = mapped_column(String, default="QUARANTINED") # QUARANTINED, PENDING_APPROVAL, APPROVED
+    status: Mapped[str] = mapped_column(String, default="QUARANTINED") # QUARANTINED, PENDING_APPROVAL, APPROVED
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now)
     expires_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)

@@ -12,6 +12,7 @@ from .api.license import router as license_router
 from .api.auth import router as auth_router
 from .api.billing import router as billing_router
 from .api.triage import router as triage_router
+from .modules.triage.scheduler import run_triage_daemon
 from .core.scheduler import start_scheduler
 from .core.watcher import WatcherService
 from .core.database import async_session_maker, engine, Base
@@ -75,7 +76,6 @@ async def lifespan(app: FastAPI):
     # Launch the continuous background LRU scanning daemon
     from .core.scheduler import run_lru_daemon
     import asyncio
-    from .modules.triage.scheduler import run_triage_daemon
     app.state.lru_daemon_task = asyncio.create_task(run_lru_daemon(async_session_maker))
     app.state.triage_daemon_task = asyncio.create_task(run_triage_daemon(async_session_maker))
 
@@ -87,8 +87,6 @@ async def lifespan(app: FastAPI):
     app.state.scheduler.shutdown()
     if hasattr(app.state, 'lru_daemon_task'):
         app.state.lru_daemon_task.cancel()
-    if hasattr(app.state, 'triage_daemon_task'):
-        app.state.triage_daemon_task.cancel()
 
 app = FastAPI(title="Kintsugi-DAM API", lifespan=lifespan)
 

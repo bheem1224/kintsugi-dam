@@ -1,5 +1,23 @@
+# Python Caches
 __pycache__/
-**/*.py[cod]
+*.py[cod]
+*.pyo
 *$py.class
-docs/Roadmap.md
-docs/Kintsugi-DAM Project Blueprint & Roadmap V4.md
+
+# Environment Variables (NEVER commit these)
+.env
+.venv/
+env/
+venv/
+*.egg-info/
+dist/
+build/
+
+# Database (Contains personal/test data - DO NOT UPLOAD)
+backend/data/kintsugi.db
+
+# Large Media Assets (If any)
+*.mp4
+*.mov
+*.iso
+*.zip

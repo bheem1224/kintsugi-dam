@@ -21,7 +21,7 @@ class TriageEntryResponse(BaseModel):
     media_file_id: int
     original_path: str
     quarantine_path: str
-    state: str
+    status: str
     created_at: datetime
     expires_at: Optional[datetime]
 
@@ -54,13 +54,13 @@ async def perform_triage_action(
         raise HTTPException(status_code=404, detail="Triage entry not found")
 
     if action_req.action == "APPROVE":
-        if entry.state == "APPROVED":
+        if entry.status == "APPROVED":
             return {"status": "success", "message": "Already approved."}
 
         settings_result = await db.execute(select(SystemSettings).where(SystemSettings.id == 1))
         settings = settings_result.scalars().first()
 
-        entry.state = "APPROVED"
+        entry.status = "APPROVED"
         entry.expires_at = datetime.now() + timedelta(days=settings.approved_retention_days)
 
         await db.commit()
@@ -107,7 +107,7 @@ async def upload_replacement(
     settings = settings_result.scalars().first()
 
     # 5. Update DB State
-    entry.state = "APPROVED"
+    entry.status = "APPROVED"
     entry.expires_at = datetime.now() + timedelta(days=settings.approved_retention_days)
 
     # Update MediaFile state to healthy
@@ -120,6 +120,6 @@ async def upload_replacement(
     await db.commit()
 
     # 6. Fire event
-    await nexus_bus.broadcast("triage:manual_resolved", {"media_file_id": entry.media_file_id, "path": original_path})
+    await nexus_bus.broadcast("event:triage:manual_resolved", {"media_file_id": entry.media_file_id, "path": original_path})
 
     return {"status": "success", "message": "Replacement uploaded successfully"}

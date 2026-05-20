@@ -26,7 +26,7 @@ def upgrade() -> None:
     sa.Column('media_file_id', sa.Integer(), nullable=False),
     sa.Column('original_path', sa.String(), nullable=False),
     sa.Column('quarantine_path', sa.String(), nullable=False),
-    sa.Column('state', sa.String(), nullable=False),
+    sa.Column('status', sa.String(), nullable=False),
     sa.Column('created_at', sa.DateTime(), nullable=False),
     sa.Column('expires_at', sa.DateTime(), nullable=True),
     sa.PrimaryKeyConstraint('id')

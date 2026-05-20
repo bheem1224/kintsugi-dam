@@ -21,84 +21,92 @@ async def handle_consensus_finalized(payload: Dict[str, Any]):
     Extracts details and saves a formatted string to NotificationLogs.
     Payload expected: {"file_path": str, "scanners": [{"name": str, "status": str}], "final_verdict": str}
     """
-    file_path = payload.get("file_path", "Unknown file")
-    scanners = payload.get("scanners", [])
-    final_verdict = payload.get("final_verdict", "Unknown")
+    try:
+        file_path = payload.get("file_path", "Unknown file")
+        scanners = payload.get("scanners", [])
+        final_verdict = payload.get("final_verdict", "Unknown")
 
-    scanners_str = ", ".join([f"{s.get('name', 'Unknown')}: {s.get('status', 'Unknown')}" for s in scanners])
-    summary = f"File: {file_path} | Verdict: {final_verdict} | Scanners: {scanners_str}"
+        scanners_str = ", ".join([f"{s.get('name', 'Unknown')}: {s.get('status', 'Unknown')}" for s in scanners])
+        summary = f"File: {file_path} | Verdict: {final_verdict} | Scanners: {scanners_str}"
 
-    async with async_session_maker() as db_session:
-        log_entry = NotificationLogs(
-            file_path=file_path,
-            summary=summary
-        )
-        db_session.add(log_entry)
-        await db_session.commit()
-        logger.info(f"Notification log saved for {file_path}")
+        async with async_session_maker() as db_session:
+            log_entry = NotificationLogs(
+                file_path=file_path,
+                summary=summary
+            )
+            db_session.add(log_entry)
+            await db_session.commit()
+            logger.info(f"Notification log saved for {file_path}")
+    except Exception as e:
+        logger.error(f"Failed to handle consensus_finalized event: {e}", exc_info=True)
 
 async def handle_remediation_completed(payload: Dict[str, Any]):
     """
     Handles event:remediation_completed.
     """
-    file_path = payload.get("file_path", "Unknown file")
-    method = payload.get("method", "Unknown")
-    status = payload.get("status", "Unknown")
+    try:
+        file_path = payload.get("file_path", "Unknown file")
+        method = payload.get("method", "Unknown")
+        status = payload.get("status", "Unknown")
 
-    summary = f"File: {file_path} | Remediation Method: {method} | Status: {status}"
+        summary = f"File: {file_path} | Remediation Method: {method} | Status: {status}"
 
-    async with async_session_maker() as db_session:
-        log_entry = NotificationLogs(
-            file_path=file_path,
-            summary=summary
-        )
-        db_session.add(log_entry)
-        await db_session.commit()
-        logger.info(f"Notification log saved for {file_path}")
+        async with async_session_maker() as db_session:
+            log_entry = NotificationLogs(
+                file_path=file_path,
+                summary=summary
+            )
+            db_session.add(log_entry)
+            await db_session.commit()
+            logger.info(f"Notification log saved for {file_path}")
+    except Exception as e:
+        logger.error(f"Failed to handle remediation_completed event: {e}", exc_info=True)
 
 async def handle_auth_required(payload: Dict[str, Any]):
     """
     Handles event:auth_required.
     Dispatches a webhook (Discord/Slack) requesting authorization.
     """
-    triage_id = payload.get("triage_id")
-    file_path = payload.get("file_path", "Unknown file")
-    reason = payload.get("reason", "Authorization required")
+    try:
+        triage_id = payload.get("triage_id")
+        file_path = payload.get("file_path", "Unknown file")
+        reason = payload.get("reason", "Authorization required")
 
-    async with async_session_maker() as db_session:
-        from sqlalchemy.future import select
-        result = await db_session.execute(select(SystemSettings).where(SystemSettings.id == 1))
-        settings = result.scalars().first()
+        async with async_session_maker() as db_session:
+            from sqlalchemy.future import select
+            result = await db_session.execute(select(SystemSettings).where(SystemSettings.id == 1))
+            settings = result.scalars().first()
 
-        if not settings:
-            logger.error("System settings not found. Cannot dispatch webhooks.")
-            return
+            if not settings:
+                logger.error("System settings not found. Cannot dispatch webhooks.")
+                return
 
-        discord_url = settings.discord_webhook_url
-        # Attempt to access slack safely if the user eventually adds it, while ignoring ntfy to avoid hallucinated attributes
-        slack_url = getattr(settings, "slack_webhook_url", None)
+            discord_url = settings.discord_webhook_url
+            slack_url = getattr(settings, "slack_webhook_url", None)
 
-        if not (discord_url or slack_url):
-            logger.info("No Discord/Slack webhook URLs configured in SystemSettings.")
-            return
+            if not (discord_url or slack_url):
+                logger.info("No Discord/Slack webhook URLs configured in SystemSettings.")
+                return
 
-    embed_payload = {
-        "content": f"**Authorization Required**\nFile: `{file_path}`\nReason: {reason}\nAction required: Send a POST request to `/api/triage/{triage_id}/authorize` with a valid API Key to resume processing."
-    }
+        embed_payload = {
+            "content": f"**Authorization Required**\nFile: `{file_path}`\nReason: {reason}\nAction required: Send a POST request to `/api/triage/{triage_id}/authorize` with a valid API Key to resume processing."
+        }
 
-    if discord_url:
-        try:
-            await webhook_client.post(discord_url, json=embed_payload)
-            logger.info(f"Discord webhook sent for {file_path}")
-        except Exception as e:
-            logger.error(f"Failed to send Discord webhook: {e}")
+        if discord_url:
+            try:
+                await webhook_client.post(discord_url, json=embed_payload)
+                logger.info(f"Discord webhook sent for {file_path}")
+            except Exception as e:
+                logger.error(f"Failed to send Discord webhook: {e}")
 
-    if slack_url:
-        try:
-            await webhook_client.post(slack_url, json={"text": embed_payload["content"]})
-            logger.info(f"Slack webhook sent for {file_path}")
-        except Exception as e:
-            logger.error(f"Failed to send Slack webhook: {e}")
+        if slack_url:
+            try:
+                await webhook_client.post(slack_url, json={"text": embed_payload["content"]})
+                logger.info(f"Slack webhook sent for {file_path}")
+            except Exception as e:
+                logger.error(f"Failed to send Slack webhook: {e}")
+    except Exception as e:
+        logger.error(f"Failed to handle auth_required event: {e}", exc_info=True)
 
 async def async_init_notification_engine():
     """

@@ -110,6 +110,7 @@ class ApiKey(Base):
     key_prefix: Mapped[str] = mapped_column(String)
     hashed_key: Mapped[str] = mapped_column(String)
     permissions: Mapped[List[str]] = mapped_column(JSON, default=list)
+    expires_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
 class TriageEntry(Base):
     __tablename__ = "triage_entries"
 

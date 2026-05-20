@@ -2,74 +2,53 @@ import logging
 from datetime import datetime
 from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Security
-from fastapi.security import APIKeyHeader
+from fastapi import APIRouter, Depends, HTTPException
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
-import passlib.hash as hashing
 
 from app.core.database import get_db
 from app.core.models import ApiKey
 from app.core.nexus import nexus_bus
+from app.core.security import verify_password
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/triage", tags=["notifications", "triage"])
 
-api_key_header = APIKeyHeader(name="Authorization", auto_error=False)
-
-def verify_api_key_hash(plain_key: str, hashed_key: str) -> bool:
-    try:
-        # Assuming bcrypt is used, can fallback to simpler matching or other hash mechanism if needed
-        # We will use passlib's bcrypt
-        from passlib.handlers.bcrypt import bcrypt
-        return bcrypt.verify(plain_key, hashed_key)
-    except Exception:
-        # Fallback if just sha256 or plaintext is stored, or handle differently
-        # For an enterprise system, bcrypt is standard
-        pass
-
-    # Simple fallback for testing if hashing wasn't strictly configured yet
-    import hashlib
-    return hashlib.sha256(plain_key.encode()).hexdigest() == hashed_key
+security = HTTPBearer(auto_error=False)
 
 async def get_authorized_api_key(
-    api_key_header: str = Security(api_key_header),
+    credentials: Optional[HTTPAuthorizationCredentials] = Depends(security),
     db: AsyncSession = Depends(get_db)
 ) -> ApiKey:
     """
     Dependency to verify the Authorization: Bearer <API_KEY> header.
     """
-    if not api_key_header:
+    if not credentials or not credentials.credentials:
         raise HTTPException(status_code=401, detail="Missing API Key header")
 
-    # Handle 'Bearer <key>' or just '<key>'
-    token = api_key_header
-    if token.lower().startswith("bearer "):
-        token = token[7:]
-
-    # Since we only have the plaintext key from the request, we must query DB
-    # We might need to fetch all keys and verify, or better:
-    # Key prefix can be used to look up the key efficiently: e.g., 'pk_live_...'
-    # For this implementation, we will fetch the key if it matches an expected pattern,
-    # or iterate through keys (which is bad practice for large DBs, but fine for small/MVP).
-    # Since prompt specifies key_prefix and hashed_key, usually keys are of form: prefix.secret
-
+    token = credentials.credentials
     parts = token.split(".")
+    
     if len(parts) == 2:
         prefix, secret = parts
         result = await db.execute(select(ApiKey).where(ApiKey.key_prefix == prefix))
         api_keys = result.scalars().all()
+        plain_to_verify = secret
     else:
-        # If no dot, just check all (fallback)
         result = await db.execute(select(ApiKey))
         api_keys = result.scalars().all()
+        plain_to_verify = token
 
     valid_key = None
     for ak in api_keys:
-        if verify_api_key_hash(token, ak.hashed_key):
-            valid_key = ak
-            break
+        try:
+            if verify_password(plain_to_verify, ak.hashed_key):
+                valid_key = ak
+                break
+        except Exception:
+            continue
 
     if not valid_key:
         raise HTTPException(status_code=401, detail="Invalid API Key")

@@ -1,226 +1,86 @@
 import os
-import json
 import asyncio
 import logging
-from datetime import datetime, time
-from typing import List, Dict, Optional
+from datetime import datetime
+from typing import Optional
+from pathlib import Path
 
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
-from .models import MediaFile, User, SystemSettings
-from .qos import QoSManager
-from .hashing import calculate_sha256, hash_pool
-from app.plugins.detectors.jpeginfo import JpegInfoDetector
-from app.plugins.detectors.pillow_deep_scan import PillowDeepScanDetector
+from .models import MediaFile
+from .nexus import nexus_bus
+
+# Import the new Rust hasher
+import kintsugi_rs
 
 logger = logging.getLogger(__name__)
 
-STATE_FILE = "data/scanner_state.json"
-
-
-
-
-def is_within_timebox(current_time: time, start_time: time, end_time: time) -> bool:
+class FileScanner:
     """
-    Checks if the current time is within the allowed window.
-    Handles maintenance windows that cross midnight.
+    High-performance Ingestion Engine.
+    Leverages Rust blake3 streaming for minimal RAM footprint.
     """
-    if start_time < end_time:
-        return start_time <= current_time <= end_time
-    else:
-        # Crosses midnight (e.g., 23:00 to 04:00)
-        return current_time >= start_time or current_time <= end_time
 
+    async def process_file(self, file_path: Path, db_session: AsyncSession):
+        """
+        Hashes a file, compares it to the database, and updates its state.
+        """
+        path_str = str(file_path)
 
-async def run_scan(
-    target_dir: str,
-    db_session: AsyncSession,
-    start_time: Optional[time] = None,
-    end_time: Optional[time] = None,
-) -> Dict[str, str]:
-    """
-    Walks the target directory, compares file metadata against the database,
-    and calculates SHA-256 hashes concurrently for new or modified files.
-    Respects the provided timebox and pauses if the window is exceeded.
-    """
-    # Freemium Logic: Single Worker Rule
-    admin_result = await db_session.execute(select(User).where(User.role == "admin").limit(1))
-    admin_user = admin_result.scalars().first()
-    is_pro = admin_user.is_pro if admin_user else False
+        # 1. Check if file exists on disk
+        if not file_path.exists():
+            logger.warning(f"File missing during scan: {path_str}")
+            return
 
-    settings_result = await db_session.execute(select(SystemSettings).limit(1))
-    settings = settings_result.scalars().first()
-    max_workers = settings.max_workers if settings else 1
-
-    worker_limit = max_workers if is_pro else 1
-    detector_semaphore = asyncio.Semaphore(worker_limit)
-    logger.info(f"Scanner starting with concurrency limit: {worker_limit} (Pro: {is_pro})")
-
-    batch = []
-    stack = []
-
-    root_dir_abs = os.path.abspath(target_dir)
-
-    if os.path.exists(STATE_FILE):
         try:
-            with open(STATE_FILE, "r") as f:
-                state = json.load(f)
-                stack = state.get("stack", [])
-            os.remove(STATE_FILE)
-        except Exception:
-            stack = [target_dir]
-    else:
-        stack = [target_dir]
+            stat = file_path.stat()
+            mtime = stat.st_mtime
+            size = stat.st_size
+        except OSError as e:
+            logger.error(f"Cannot stat file {path_str}: {e}")
+            return
 
-    # 1. Walk the directory statelessly using os.scandir and a stack
-    while stack:
-        current_dir = stack.pop()
+        # 2. Hash the file via Rust (async/non-blocking)
         try:
-            # Use os.scandir for cached stats
-            with os.scandir(current_dir) as entries:
-                for entry in entries:
-                    entry_abs_path = os.path.abspath(entry.path)
+            new_hash = await asyncio.to_thread(kintsugi_rs.calculate_blake3, path_str)
+        except Exception as e:
+            logger.error(f"Failed to hash {path_str}: {e}")
+            return
 
-                    # Directory Jail Enforcement
-                    if (
-                        os.path.commonpath([root_dir_abs, entry_abs_path])
-                        != root_dir_abs
-                    ):
-                        logger.critical(
-                            f"Security Alert: Path traversal attempt blocked: {entry.path} escaped root {target_dir}"
-                        )
-                        continue
+        # 3. Query the DB
+        result = await db_session.execute(select(MediaFile).where(MediaFile.filepath == path_str))
+        record = result.scalars().first()
 
-                    if entry.is_dir(follow_symlinks=False):
-                        stack.append(entry.path)
-                    elif entry.is_file(follow_symlinks=False):
-                        filepath = entry.path
+        now = datetime.now()
 
-                        try:
-                            stat = entry.stat()
-                        except OSError:
-                            continue  # Skip if file cannot be accessed
-
-                        mtime = stat.st_mtime
-                        size = stat.st_size
-
-                        # Check DB for existing record
-                        result = await db_session.execute(
-                            select(MediaFile).where(MediaFile.filepath == filepath)
-                        )
-                        record = result.scalars().first()
-
-                        if record and record.mtime == mtime and record.size == size:
-                            continue  # Up-to-date, skip
-
-                        # New or modified, queue for hashing
-                        batch.append((filepath, mtime, size, record))
-
-                        # The Trigger: Process batch of 100
-                        if len(batch) >= 100:
-                            await _process_batch(batch, db_session, detector_semaphore)
-                            batch.clear()  # Empty the batch list
-
-                            # Check timebox
-                            if start_time and end_time:
-                                now = datetime.now().time()
-                                if not is_within_timebox(now, start_time, end_time):
-                                    await db_session.close()
-                                    # Save state before pausing
-                                    os.makedirs("data", exist_ok=True)
-                                    with open(STATE_FILE, "w") as f:
-                                        json.dump({"stack": stack}, f)
-                                    return {"status": "paused"}
-        except OSError:
-            continue  # Skip directory if cannot be accessed
-
-    # Process any remaining files in the batch
-    if batch:
-        await _process_batch(batch, db_session, detector_semaphore)
-
-    # Even if timebox expired after the last batch, we finished the whole scan.
-    # Therefore, return completed.
-    return {"status": "completed"}
-
-
-async def _process_single_file(
-    filepath: str,
-    mtime: float,
-    size: int,
-    record: Optional[MediaFile],
-    loop: asyncio.AbstractEventLoop,
-    detector_semaphore: asyncio.Semaphore,
-) -> tuple:
-    # Hash the file
-    file_hash = await loop.run_in_executor(hash_pool, calculate_sha256, filepath)
-
-    # Only run detectors on image files for now
-    ext = os.path.splitext(filepath)[1].lower()
-    is_image = ext in [".jpg", ".jpeg", ".png", ".gif", ".bmp", ".tiff", ".webp"]
-
-    file_state = "clean"
-    error_msg = ""
-
-    if is_image:
-        async with detector_semaphore:
-            # First line of defense: JpegInfo
-            jpeg_detector = JpegInfoDetector()
-            is_clean, msg = await jpeg_detector.analyze(filepath)
-
-            if not is_clean:
-                file_state = "corrupted"
-                error_msg = msg
-            else:
-                # Fallback consensus check: Pillow Deep Scan
-                pillow_detector = PillowDeepScanDetector()
-                is_clean_pillow, msg_pillow = await pillow_detector.analyze(filepath)
-                if not is_clean_pillow:
-                    file_state = "corrupted"
-                    error_msg = msg_pillow
-
-    return filepath, mtime, size, record, file_hash, file_state, error_msg
-
-
-async def _process_batch(batch: List[tuple], db_session: AsyncSession, detector_semaphore: asyncio.Semaphore) -> None:
-    """Helper function to hash a batch of files, run detections, and update the database."""
-    if not batch:
-        return
-
-    loop = asyncio.get_running_loop()
-
-    # QoS Check before processing the batch
-    while await QoSManager.should_yield():
-        logger.debug("QoS Manager: Yielding CPU/Disk to host system...")
-        await asyncio.sleep(5)
-
-    # Map the CPU-bound hashing and scanning functions concurrently
-    tasks = [
-        _process_single_file(filepath, mtime, size, record, loop, detector_semaphore)
-        for filepath, mtime, size, record in batch
-    ]
-    results = await asyncio.gather(*tasks)
-
-    # Update the database
-    for filepath, mtime, size, record, file_hash, file_state, error_msg in results:
-        if record:
-            # Update existing record
-            record.mtime = mtime
-            record.size = size
-            record.sha256_hash = file_hash
-            record.last_hashed_date = datetime.utcnow()
-            record.state = file_state
-        else:
-            # Create new record
+        if not record:
+            # New file
             new_record = MediaFile(
-                filepath=filepath,
+                filepath=path_str,
                 mtime=mtime,
                 size=size,
-                sha256_hash=file_hash,
-                last_hashed_date=datetime.utcnow(),
-                state=file_state,
+                sha256_hash=new_hash,
+                last_scanned_at=now,
+                state="healthy"
             )
             db_session.add(new_record)
+            logger.debug(f"Inserted new healthy file: {path_str}")
+        else:
+            # Existing file: Compare hashes
+            if record.sha256_hash == new_hash:
+                # Hash matches, update last_scanned_at
+                record.last_scanned_at = now
+                if record.state == "corrupted":
+                    # In case it was previously marked corrupted but is now fine (e.g. replaced)
+                    record.state = "healthy"
+            else:
+                # Hash mismatch -> Corrupted
+                record.sha256_hash = new_hash
+                record.last_scanned_at = now
+                record.state = "corrupted"
+                logger.warning(f"CORRUPTION DETECTED: {path_str}")
+                await nexus_bus.broadcast("file_corrupted", {"path": path_str})
 
-    # Commit changes
-    await db_session.commit()
+        # Commit the transaction
+        await db_session.commit()

@@ -1,8 +1,8 @@
 from datetime import datetime
 from typing import Optional, List
 
-from sqlalchemy import String, Float, Integer, Boolean, DateTime, JSON
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy import String, Float, Integer, Boolean, DateTime, JSON, ForeignKey
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from .database import Base
 
@@ -90,3 +90,23 @@ class Plugin(Base):
     is_official: Mapped[bool] = mapped_column(Boolean, default=False)
     type: Mapped[str] = mapped_column(String)
     permissions: Mapped[Optional[List[str]]] = mapped_column(JSON, nullable=True)
+
+
+class NotificationLogs(Base):
+    __tablename__ = "notification_logs"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    file_path: Mapped[str] = mapped_column(String)
+    summary: Mapped[str] = mapped_column(String)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now)
+
+
+class ApiKey(Base):
+    __tablename__ = "api_keys"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"))
+    key_prefix: Mapped[str] = mapped_column(String)
+    hashed_key: Mapped[str] = mapped_column(String)
+    permissions: Mapped[List[str]] = mapped_column(JSON, default=list)
+    expires_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)

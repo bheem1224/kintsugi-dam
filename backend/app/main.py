@@ -11,6 +11,7 @@ from .api.routers import router as api_router
 from .api.license import router as license_router
 from .api.auth import router as auth_router
 from .api.billing import router as billing_router
+from .api.notifications import router as notifications_router
 from .core.scheduler import start_scheduler
 from .core.watcher import WatcherService
 from .core.database import async_session_maker, engine, Base
@@ -19,6 +20,7 @@ from sqlalchemy import select
 
 from .core.module_loader import module_loader
 from .core.nexus import nexus_bus
+from .modules.notifications.services import async_init_notification_engine
 from .core.models import User
 
 @asynccontextmanager
@@ -62,6 +64,7 @@ async def lifespan(app: FastAPI):
                     f.write("booting")
 
                 nexus_bus.initialize()
+                await async_init_notification_engine()
                 await module_loader.boot_plugins(session)
 
                 try:
@@ -116,6 +119,7 @@ app.include_router(api_router, prefix="/api")
 app.include_router(license_router, prefix="/api/license")
 app.include_router(auth_router, prefix="/api/auth", tags=["auth"])
 app.include_router(billing_router, prefix="/api/billing", tags=["billing"])
+app.include_router(notifications_router)
 
 @app.get("/")
 async def root():

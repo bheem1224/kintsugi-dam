@@ -31,4 +31,5 @@ dependencies = [
     "asyncpg>=0.31.0",
     "aiomysql>=0.3.2",
     "maturin>=1.13.1",
+    "pytest>=9.0.3",
 ]

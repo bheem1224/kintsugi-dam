@@ -12,6 +12,8 @@ from .api.license import router as license_router
 from .api.auth import router as auth_router
 from .api.billing import router as billing_router
 from .api.notifications import router as notifications_router
+from .api.triage import router as triage_router
+from .modules.triage.scheduler import run_triage_daemon
 from .core.scheduler import start_scheduler
 from .core.watcher import WatcherService
 from .core.database import async_session_maker, engine, Base
@@ -78,6 +80,7 @@ async def lifespan(app: FastAPI):
     from .core.scheduler import run_lru_daemon
     import asyncio
     app.state.lru_daemon_task = asyncio.create_task(run_lru_daemon(async_session_maker))
+    app.state.triage_daemon_task = asyncio.create_task(run_triage_daemon(async_session_maker))
 
     app.state.watcher = WatcherService()
     app.state.watcher.start(monitored_directory)
@@ -120,6 +123,7 @@ app.include_router(license_router, prefix="/api/license")
 app.include_router(auth_router, prefix="/api/auth", tags=["auth"])
 app.include_router(billing_router, prefix="/api/billing", tags=["billing"])
 app.include_router(notifications_router)
+app.include_router(triage_router, prefix="/api/triage")
 
 @app.get("/")
 async def root():

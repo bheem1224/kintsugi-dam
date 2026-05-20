@@ -61,6 +61,7 @@ class SystemSettings(Base):
     auto_restore_ai: Mapped[bool] = mapped_column(Boolean, default=False)
     ai_use_kintsugi_cloud: Mapped[bool] = mapped_column(Boolean, default=True)
     retention_days: Mapped[int] = mapped_column(Integer, default=90)
+    approved_retention_days: Mapped[int] = mapped_column(Integer, default=30)
     snapshot_mount_path: Mapped[str] = mapped_column(String, default="/snapshots")
     enable_3rd_party_plugins: Mapped[bool] = mapped_column(Boolean, default=False)
 
@@ -109,4 +110,13 @@ class ApiKey(Base):
     key_prefix: Mapped[str] = mapped_column(String)
     hashed_key: Mapped[str] = mapped_column(String)
     permissions: Mapped[List[str]] = mapped_column(JSON, default=list)
+class TriageEntry(Base):
+    __tablename__ = "triage_entries"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    media_file_id: Mapped[int] = mapped_column(Integer, index=True)
+    original_path: Mapped[str] = mapped_column(String)
+    quarantine_path: Mapped[str] = mapped_column(String)
+    status: Mapped[str] = mapped_column(String, default="QUARANTINED") # QUARANTINED, PENDING_APPROVAL, APPROVED
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now)
     expires_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)

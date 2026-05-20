@@ -28,13 +28,13 @@ async def quarantine_file(db_session: AsyncSession, media_file_id: int) -> Tuple
          return False, f"Original file missing: {original_path}"
 
     # 2. Get system settings for quarantine directory
-    settings_result = await db_session.execute(select(SystemSettings).where(SystemSettings.id == 1))
-    settings = settings_result.scalars().first()
+    settings_result = await db_session.execute(
+        select(SystemSettings.value).where(SystemSettings.key == "triage_directory")
+    )
+    triage_dir = settings_result.scalars().first()
 
-    if not settings:
-        return False, "System settings not found."
-
-    triage_dir = settings.triage_directory
+    if not triage_dir:
+        return False, "System settings 'triage_directory' not found."
     quarantine_dir = os.path.join(triage_dir, "quarantine")
     os.makedirs(quarantine_dir, exist_ok=True)
 

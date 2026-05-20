@@ -75,13 +75,13 @@ async def get_current_user(
 
     try:
         payload = jwt.decode(token, JWT_SECRET_KEY, algorithms=[JWT_ALGORITHM])
-        username: str = payload.get("sub")
-        if username is None:
+        email: str = payload.get("sub")
+        if email is None:
             raise credentials_exception
     except jwt.PyJWTError:
         raise credentials_exception
 
-    result = await db.execute(select(User).where(User.username == username))
+    result = await db.execute(select(User).where(User.email == email))
     user = result.scalars().first()
 
     if user is None:

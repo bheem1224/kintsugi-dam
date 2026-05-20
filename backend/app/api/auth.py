@@ -26,8 +26,9 @@ if settings.OIDC_CLIENT_ID and settings.OIDC_CLIENT_SECRET and settings.OIDC_DIS
         }
     )
 
+from typing import List
+
 class UserCreate(BaseModel):
-    username: str
     email: str
     password: str
 
@@ -36,9 +37,8 @@ class Token(BaseModel):
     token_type: str
 
 class UserProfile(BaseModel):
-    username: str
     email: str
-    is_pro: bool
+    permissions: List[str]
 
 @router.get("/status")
 async def get_system_status(db: AsyncSession = Depends(get_db)):
@@ -48,9 +48,11 @@ async def get_system_status(db: AsyncSession = Depends(get_db)):
     
     # Check if setup is complete
     from ..core.models import SystemSettings
-    settings_result = await db.execute(select(SystemSettings).where(SystemSettings.id == 1))
-    settings = settings_result.scalars().first()
-    setup_complete = settings.is_setup_complete if settings else False
+    settings_result = await db.execute(
+        select(SystemSettings.value).where(SystemSettings.key == "is_setup_complete")
+    )
+    val = settings_result.scalars().first()
+    setup_complete = val.lower() == "true" if val else False
     
     return {
         "setup_required": not (user_exists and setup_complete),
@@ -68,15 +70,17 @@ async def register(user: UserCreate, db: AsyncSession = Depends(get_db)):
 
     hashed_password = get_password_hash(user.password)
     new_user = User(
-        username=user.username,
         email=user.email,
-        hashed_password=hashed_password
+        hashed_password=hashed_password,
+        is_local_disabled=False,
+        permissions=["system:write", "triage:approve"],
+        allowed_ips=[]
     )
     db.add(new_user)
     await db.commit()
     await db.refresh(new_user)
 
-    access_token = create_access_token(data={"sub": new_user.username})
+    access_token = create_access_token(data={"sub": new_user.email})
     return {"access_token": access_token, "token_type": "bearer"}
 
 @router.post("/login", response_model=Token)
@@ -84,25 +88,30 @@ async def login(
     form_data: OAuth2PasswordRequestForm = Depends(),
     db: AsyncSession = Depends(get_db)
 ):
-    result = await db.execute(select(User).where(User.username == form_data.username))
+    result = await db.execute(select(User).where(User.email == form_data.username))
     user = result.scalars().first()
 
     if not user or not verify_password(form_data.password, user.hashed_password):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Incorrect username or password",
+            detail="Incorrect email or password",
             headers={"WWW-Authenticate": "Bearer"},
         )
 
-    access_token = create_access_token(data={"sub": user.username})
+    if user.is_local_disabled:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Local login is disabled for this account."
+        )
+
+    access_token = create_access_token(data={"sub": user.email})
     return {"access_token": access_token, "token_type": "bearer"}
 
 @router.get("/me", response_model=UserProfile)
 async def get_me(current_user: User = Depends(get_current_user)):
     return {
-        "username": current_user.username,
         "email": current_user.email,
-        "is_pro": current_user.is_pro
+        "permissions": current_user.permissions
     }
 
 @router.get("/oidc/login")
@@ -136,19 +145,13 @@ async def oidc_callback(request: Request, db: AsyncSession = Depends(get_db)):
 
         if not any_user:
             # First user, auto-provision
-            username = email.split('@')[0]
-            # Ensure unique username if collision somehow
-            check_username = await db.execute(select(User).where(User.username == username))
-            if check_username.scalars().first():
-                username = f"{username}_{secrets.token_hex(4)}"
-
-            # Master admin needs a strong random password since they login via SSO
             hashed_password = get_password_hash(secrets.token_urlsafe(32))
             user = User(
-                username=username,
                 email=email,
                 hashed_password=hashed_password,
-                role="admin"
+                is_local_disabled=False,
+                permissions=["system:write", "triage:approve"],
+                allowed_ips=[]
             )
             db.add(user)
             await db.commit()
@@ -157,7 +160,7 @@ async def oidc_callback(request: Request, db: AsyncSession = Depends(get_db)):
             # Not first user, reject
             raise HTTPException(status_code=403, detail="User not found and self-registration via OIDC is not enabled.")
 
-    access_token = create_access_token(data={"sub": user.username})
+    access_token = create_access_token(data={"sub": user.email})
 
     response = RedirectResponse(url="/")
     is_secure = settings.PUBLIC_URL.startswith("https://")

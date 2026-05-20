@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import Optional, List
 
-from sqlalchemy import String, Float, Integer, Boolean, DateTime, JSON
+from sqlalchemy import String, Float, Integer, Boolean, DateTime, JSON, ForeignKey
 from sqlalchemy.orm import Mapped, mapped_column
 
 from .database import Base
@@ -45,38 +45,31 @@ class SystemSettings(Base):
     __tablename__ = "system_settings"
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    discord_webhook_url: Mapped[Optional[str]] = mapped_column(String, nullable=True)
-    ntfy_topic_url: Mapped[Optional[str]] = mapped_column(String, nullable=True)
-    consensus_threshold: Mapped[int] = mapped_column(Integer, default=2)
-    cloud_credits: Mapped[int] = mapped_column(Integer, default=0)
-    maintenance_start: Mapped[str] = mapped_column(String, default="01:00")
-    maintenance_end: Mapped[str] = mapped_column(String, default="05:00")
-    monitored_directory: Mapped[str] = mapped_column(String, default="/media")
-    triage_directory: Mapped[str] = mapped_column(String, default="/app/data/triage")
-    scan_intensity: Mapped[str] = mapped_column(String, default="eco") # eco, balanced, turbo
-    is_setup_complete: Mapped[bool] = mapped_column(Boolean, default=False)
-    max_workers: Mapped[int] = mapped_column(Integer, default=1)
-    auto_restore: Mapped[bool] = mapped_column(Boolean, default=False)
-    auto_restore_cloud: Mapped[bool] = mapped_column(Boolean, default=False)
-    auto_restore_ai: Mapped[bool] = mapped_column(Boolean, default=False)
-    ai_use_kintsugi_cloud: Mapped[bool] = mapped_column(Boolean, default=True)
-    retention_days: Mapped[int] = mapped_column(Integer, default=90)
-    approved_retention_days: Mapped[int] = mapped_column(Integer, default=30)
-    snapshot_mount_path: Mapped[str] = mapped_column(String, default="/snapshots")
-    enable_3rd_party_plugins: Mapped[bool] = mapped_column(Boolean, default=False)
+    key: Mapped[str] = mapped_column(String, unique=True, index=True)
+    value: Mapped[str] = mapped_column(String)
+
 
 class User(Base):
     __tablename__ = "users"
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    username: Mapped[str] = mapped_column(String, unique=True, index=True)
     email: Mapped[str] = mapped_column(String, unique=True, index=True)
     hashed_password: Mapped[str] = mapped_column(String)
-    role: Mapped[str] = mapped_column(String, default="user")
-    license_key: Mapped[Optional[str]] = mapped_column(String, nullable=True)
-    is_pro: Mapped[bool] = mapped_column(Boolean, default=False)
-    paddle_customer_id: Mapped[Optional[str]] = mapped_column(String, nullable=True)
-    paddle_subscription_id: Mapped[Optional[str]] = mapped_column(String, nullable=True)
+    is_local_disabled: Mapped[bool] = mapped_column(Boolean, default=False)
+    permissions: Mapped[List[str]] = mapped_column(JSON, default=list)
+    allowed_ips: Mapped[List[str]] = mapped_column(JSON, default=list)
+
+
+class ApiKey(Base):
+    __tablename__ = "api_keys"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False)
+    key_prefix: Mapped[str] = mapped_column(String, nullable=False)
+    hashed_key: Mapped[str] = mapped_column(String, nullable=False)
+    permissions: Mapped[List[str]] = mapped_column(JSON, nullable=False)
+    expires_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+
 
 
 class Plugin(Base):

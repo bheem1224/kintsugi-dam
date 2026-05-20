@@ -17,14 +17,21 @@ async def prune_triage_bin(db_session: AsyncSession) -> None:
     logger.info("Starting Triage Bin pruning job.")
 
     # 1. Fetch settings inside the transaction
-    result = await db_session.execute(select(SystemSettings).where(SystemSettings.id == 1))
-    settings = result.scalars().first()
+    result = await db_session.execute(
+        select(SystemSettings.value).where(SystemSettings.key == "retention_days")
+    )
+    val = result.scalars().first()
 
-    if not settings:
-        logger.error("Could not load SystemSettings. Aborting prune job.")
+    if val is None:
+        logger.error("Could not load retention_days from SystemSettings. Aborting prune job.")
         return
 
-    retention_days = settings.retention_days
+    try:
+        retention_days = int(val)
+    except ValueError:
+        logger.error(f"Invalid retention_days value in SystemSettings: {val}. Aborting.")
+        return
+
     if retention_days <= 0:
         logger.info("Retention days is 0 or less. Pruning disabled.")
         return

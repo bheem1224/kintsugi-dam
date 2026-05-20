@@ -22,16 +22,18 @@ async def activate_license(
     if request.license_key == DEV_BYPASS_KEY:
         logger.info("DEV_BYPASS_KEY used. Provisioning 100 cloud credits.")
 
-        result = await db.execute(select(SystemSettings))
-        settings = result.scalars().first()
+        result = await db.execute(select(SystemSettings).where(SystemSettings.key == "cloud_credits"))
+        setting = result.scalars().first()
 
-        if settings:
-            settings.cloud_credits += 100
+        if setting:
+            try:
+                credits = int(setting.value)
+            except ValueError:
+                credits = 0
+            setting.value = str(credits + 100)
         else:
-            settings = SystemSettings(cloud_credits=100, id=1)
-            db.add(settings)
+            db.add(SystemSettings(key="cloud_credits", value="100"))
 
-        current_user.license_key = request.license_key
         await db.commit()
         return LicenseActivationResponse(
             status="success",

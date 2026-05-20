@@ -31,13 +31,18 @@ async def repair_file_ai(
     file_id: int, request: AIRepairRequest, db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_user)
 ):
     if request.provider == "cloud":
-        result = await db.execute(select(SystemSettings))
-        settings = result.scalars().first()
+        result = await db.execute(select(SystemSettings).where(SystemSettings.key == "cloud_credits"))
+        setting = result.scalars().first()
+        credits = int(setting.value) if setting else 0
 
-        if not settings or settings.cloud_credits < 1:
+        if credits < 1:
             raise HTTPException(status_code=402, detail="Insufficient cloud credits.")
 
-        settings.cloud_credits -= 1
+        credits -= 1
+        if setting:
+            setting.value = str(credits)
+        else:
+            db.add(SystemSettings(key="cloud_credits", value=str(credits)))
         await db.commit()
         logger.info(
             f"Deducted 1 cloud credit for file {file_id}. Remaining: {settings.cloud_credits}"
@@ -64,9 +69,11 @@ async def get_stats(request: Request, db: AsyncSession = Depends(get_db), curren
     last_scan = last_scan_result.scalar_one()
     last_scan_time = last_scan.isoformat() if last_scan else None
 
-    settings_result = await db.execute(select(SystemSettings).where(SystemSettings.id == 1))
-    settings = settings_result.scalars().first()
-    cloud_credits = settings.cloud_credits if settings else 0
+    settings_result = await db.execute(
+        select(SystemSettings.value).where(SystemSettings.key == "cloud_credits")
+    )
+    val = settings_result.scalars().first()
+    cloud_credits = int(val) if val else 0
 
     scheduler = request.app.state.scheduler
     current_scanner_state = "Sleeping"
@@ -106,46 +113,58 @@ async def get_stats(request: Request, db: AsyncSession = Depends(get_db), curren
 
 @router.post("/settings")
 async def update_settings(request: Request, settings_req: SettingsUpdateRequest, db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_user)):
-    settings_result = await db.execute(select(SystemSettings).where(SystemSettings.id == 1))
-    settings = settings_result.scalars().first()
+    async def set_kvs(key: str, val):
+        if val is None:
+            return
+        if isinstance(val, bool):
+            val_str = "true" if val else "false"
+        else:
+            val_str = str(val)
+        res = await db.execute(select(SystemSettings).where(SystemSettings.key == key))
+        setting = res.scalars().first()
+        if setting:
+            setting.value = val_str
+        else:
+            db.add(SystemSettings(key=key, value=val_str))
 
-    if not settings:
-        raise HTTPException(status_code=404, detail="Settings not found")
+    old_monitored_dir = None
+    if settings_req.monitored_directory is not None:
+        res = await db.execute(select(SystemSettings.value).where(SystemSettings.key == "monitored_directory"))
+        old_monitored_dir = res.scalars().first()
 
     if settings_req.maintenance_start is not None:
-        settings.maintenance_start = settings_req.maintenance_start
+        await set_kvs("maintenance_start", settings_req.maintenance_start)
     if settings_req.maintenance_end is not None:
-        settings.maintenance_end = settings_req.maintenance_end
+        await set_kvs("maintenance_end", settings_req.maintenance_end)
 
-    if settings_req.monitored_directory is not None and settings_req.monitored_directory != settings.monitored_directory:
-        settings.monitored_directory = settings_req.monitored_directory
-        # Restart the watcher with the new path
+    if settings_req.monitored_directory is not None and settings_req.monitored_directory != old_monitored_dir:
+        await set_kvs("monitored_directory", settings_req.monitored_directory)
         watcher = request.app.state.watcher
         if watcher:
             watcher.restart(settings_req.monitored_directory)
 
     if settings_req.discord_webhook_url is not None:
-        settings.discord_webhook_url = settings_req.discord_webhook_url
+        await set_kvs("discord_webhook_url", settings_req.discord_webhook_url)
     if settings_req.ntfy_topic_url is not None:
-        settings.ntfy_topic_url = settings_req.ntfy_topic_url
+        await set_kvs("ntfy_topic_url", settings_req.ntfy_topic_url)
     if settings_req.auto_restore is not None:
-        settings.auto_restore = settings_req.auto_restore
+        await set_kvs("auto_restore", settings_req.auto_restore)
     if settings_req.auto_restore_cloud is not None:
-        settings.auto_restore_cloud = settings_req.auto_restore_cloud
+        await set_kvs("auto_restore_cloud", settings_req.auto_restore_cloud)
     if settings_req.auto_restore_ai is not None:
-        settings.auto_restore_ai = settings_req.auto_restore_ai
+        await set_kvs("auto_restore_ai", settings_req.auto_restore_ai)
     if settings_req.ai_use_kintsugi_cloud is not None:
-        settings.ai_use_kintsugi_cloud = settings_req.ai_use_kintsugi_cloud
+        await set_kvs("ai_use_kintsugi_cloud", settings_req.ai_use_kintsugi_cloud)
     if settings_req.retention_days is not None:
-        settings.retention_days = settings_req.retention_days
+        await set_kvs("retention_days", settings_req.retention_days)
     if settings_req.snapshot_mount_path is not None:
-        settings.snapshot_mount_path = settings_req.snapshot_mount_path
+        await set_kvs("snapshot_mount_path", settings_req.snapshot_mount_path)
     if settings_req.triage_directory is not None:
-        settings.triage_directory = settings_req.triage_directory
+        await set_kvs("triage_directory", settings_req.triage_directory)
     if settings_req.scan_intensity is not None:
-        settings.scan_intensity = settings_req.scan_intensity
+        await set_kvs("scan_intensity", settings_req.scan_intensity)
     if settings_req.is_setup_complete is not None:
-        settings.is_setup_complete = settings_req.is_setup_complete
+        await set_kvs("is_setup_complete", settings_req.is_setup_complete)
 
     if settings_req.plugins is not None:
         for plugin_name, is_active in settings_req.plugins.items():
@@ -159,14 +178,30 @@ async def update_settings(request: Request, settings_req: SettingsUpdateRequest,
 
 @router.get("/settings")
 async def get_settings(db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_user)):
-    settings_result = await db.execute(select(SystemSettings).where(SystemSettings.id == 1))
-    settings = settings_result.scalars().first()
+    result = await db.execute(select(SystemSettings))
+    rows = result.scalars().all()
+    
+    settings_dict = {row.key: row.value for row in rows}
+    
+    def parse_value(key, val):
+        if val is None:
+            return None
+        if key in ["consensus_threshold", "cloud_credits", "max_workers", "retention_days", "approved_retention_days"]:
+            try:
+                return int(val)
+            except ValueError:
+                return 0
+        if key in ["is_setup_complete", "auto_restore", "auto_restore_cloud", "auto_restore_ai", "ai_use_kintsugi_cloud", "enable_3rd_party_plugins"]:
+            return val.lower() == "true"
+        return val
 
+    typed_settings = {k: parse_value(k, v) for k, v in settings_dict.items()}
+    
     plugins_result = await db.execute(select(PluginConfig))
     plugins = plugins_result.scalars().all()
 
     return {
-        "settings": settings,
+        "settings": typed_settings,
         "plugins": {p.name: p.is_active for p in plugins}
     }
 
@@ -319,23 +354,24 @@ async def remediate_file_snapshot(
         raise HTTPException(status_code=404, detail="File not found")
 
     # Get settings
-    settings_result = await db.execute(select(SystemSettings).where(SystemSettings.id == 1))
-    settings = settings_result.scalars().first()
-
-    if not settings:
-        raise HTTPException(status_code=500, detail="System settings not found")
+    res_snapshot = await db.execute(select(SystemSettings.value).where(SystemSettings.key == "snapshot_mount_path"))
+    snapshot_mount_path = res_snapshot.scalars().first() or "/snapshots"
+    
+    res_restore = await db.execute(select(SystemSettings.value).where(SystemSettings.key == "auto_restore"))
+    val_restore = res_restore.scalars().first()
+    auto_restore = val_restore.lower() == "true" if val_restore else False
 
     success, message = await remediate_from_snapshot(
         media_file.filepath,
-        settings.snapshot_mount_path,
-        settings.auto_restore
+        snapshot_mount_path,
+        auto_restore
     )
 
     if not success:
         raise HTTPException(status_code=400, detail=message)
 
     # Update DB state based on policy
-    if settings.auto_restore:
+    if auto_restore:
         media_file.state = "clean"
     else:
         media_file.state = "pending_approval"

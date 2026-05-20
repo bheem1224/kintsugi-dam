@@ -20,10 +20,13 @@ class ModuleLoader:
         Dynamically imports the plugin_engine module if enabled in SystemSettings.
         Avoids memory overhead if plugins are disabled.
         """
-        result = await db_session.execute(select(SystemSettings).where(SystemSettings.id == 1))
-        settings = result.scalars().first()
+        result = await db_session.execute(
+            select(SystemSettings.value).where(SystemSettings.key == "enable_3rd_party_plugins")
+        )
+        val = result.scalars().first()
+        enable_3rd_party_plugins = val.lower() == "true" if val else False
 
-        if settings and settings.enable_3rd_party_plugins:
+        if enable_3rd_party_plugins:
             logger.info("3rd-party plugins are enabled. Loading plugin_engine module...")
             try:
                 plugin_engine = importlib.import_module("app.modules.plugin_engine")

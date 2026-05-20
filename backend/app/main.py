@@ -35,23 +35,47 @@ async def lifespan(app: FastAPI):
 
     # Fetch initial settings from the database
     async with async_session_maker() as session:
-        result = await session.execute(select(SystemSettings).where(SystemSettings.id == 1))
-        settings = result.scalars().first()
+        defaults = {
+            "discord_webhook_url": "",
+            "ntfy_topic_url": "",
+            "consensus_threshold": "2",
+            "cloud_credits": "0",
+            "maintenance_start": "01:00",
+            "maintenance_end": "05:00",
+            "monitored_directory": "/media",
+            "triage_directory": "/app/data/triage",
+            "scan_intensity": "eco",
+            "is_setup_complete": "false",
+            "max_workers": "1",
+            "auto_restore": "false",
+            "auto_restore_cloud": "false",
+            "auto_restore_ai": "false",
+            "ai_use_kintsugi_cloud": "true",
+            "retention_days": "90",
+            "approved_retention_days": "30",
+            "snapshot_mount_path": "/snapshots",
+            "enable_3rd_party_plugins": "false"
+        }
+        result = await session.execute(select(SystemSettings))
+        existing_keys = {row.key for row in result.scalars().all()}
         
-        if not settings:
-            settings = SystemSettings(id=1)
-            session.add(settings)
+        added = False
+        for k, v in defaults.items():
+            if k not in existing_keys:
+                session.add(SystemSettings(key=k, value=v))
+                added = True
+        if added:
             await session.commit()
-            await session.refresh(settings)
-            
-        monitored_directory = settings.monitored_directory
+
+        res_dir = await session.execute(select(SystemSettings.value).where(SystemSettings.key == "monitored_directory"))
+        monitored_directory = res_dir.scalars().first() or "/media"
 
     booting_flag = "/app/data/plugin_boot.lock"
 
     async with async_session_maker() as session:
-        admin_result = await session.execute(select(User).where(User.role == "admin"))
+        admin_result = await session.execute(select(User).limit(1))
         admin_user = admin_result.scalars().first()
-        is_pro = admin_user.is_pro if admin_user else False
+        is_pro = True if admin_user else False
 
         if not is_pro:
             logger.info("Free Tier Active: Nexus Event Bus Disabled. Skipping plugin loader.")

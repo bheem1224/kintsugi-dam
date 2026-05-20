@@ -57,11 +57,14 @@ async def perform_triage_action(
         if entry.status == "APPROVED":
             return {"status": "success", "message": "Already approved."}
 
-        settings_result = await db.execute(select(SystemSettings).where(SystemSettings.id == 1))
-        settings = settings_result.scalars().first()
+        settings_result = await db.execute(
+            select(SystemSettings.value).where(SystemSettings.key == "approved_retention_days")
+        )
+        val = settings_result.scalars().first()
+        approved_retention_days = int(val) if val else 30
 
         entry.status = "APPROVED"
-        entry.expires_at = datetime.now() + timedelta(days=settings.approved_retention_days)
+        entry.expires_at = datetime.now() + timedelta(days=approved_retention_days)
 
         await db.commit()
         return {"status": "success", "message": "Triage entry approved."}
@@ -103,12 +106,15 @@ async def upload_replacement(
             pass # ignore if placeholder doesn't exist
 
     # 4. Get settings for TTL
-    settings_result = await db.execute(select(SystemSettings).where(SystemSettings.id == 1))
-    settings = settings_result.scalars().first()
+    settings_result = await db.execute(
+        select(SystemSettings.value).where(SystemSettings.key == "approved_retention_days")
+    )
+    val = settings_result.scalars().first()
+    approved_retention_days = int(val) if val else 30
 
     # 5. Update DB State
     entry.status = "APPROVED"
-    entry.expires_at = datetime.now() + timedelta(days=settings.approved_retention_days)
+    entry.expires_at = datetime.now() + timedelta(days=approved_retention_days)
 
     # Update MediaFile state to healthy
     media_result = await db.execute(select(MediaFile).where(MediaFile.id == entry.media_file_id))

@@ -1,3 +1,4 @@
+from sqlalchemy import BigInteger
 from datetime import datetime
 from typing import Optional, List
 
@@ -104,3 +105,23 @@ class TriageEntry(Base):
     )  # QUARANTINED, PENDING_APPROVAL, APPROVED
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now)
     expires_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+
+
+class FleetNode(Base):
+    __tablename__ = "fleet_nodes"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    name: Mapped[str] = mapped_column(String, unique=True)
+    public_key_thumbprint: Mapped[str] = mapped_column(String, unique=True, index=True)
+    status: Mapped[str] = mapped_column(String, default="active")
+    quota_bytes: Mapped[Optional[int]] = mapped_column(BigInteger, nullable=True)
+    registered_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now)
+    last_seen_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now)
+
+class FleetAuthority(Base):
+    __tablename__ = "fleet_authority"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    private_key_pem: Mapped[str] = mapped_column(String)
+    public_cert_pem: Mapped[str] = mapped_column(String)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now)

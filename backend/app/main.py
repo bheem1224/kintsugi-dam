@@ -13,6 +13,7 @@ from .api.auth import router as auth_router
 from .api.billing import router as billing_router
 from .api.notifications import router as notifications_router
 from .api.triage import router as triage_router
+from .api.fleet import router as fleet_router
 from .modules.triage.scheduler import run_triage_daemon
 from .core.scheduler import start_scheduler
 from .modules.ingest.watcher import TieredWatcherDaemon
@@ -148,6 +149,7 @@ app.include_router(auth_router, prefix="/api/auth", tags=["auth"])
 app.include_router(billing_router, prefix="/api/billing", tags=["billing"])
 app.include_router(notifications_router)
 app.include_router(triage_router, prefix="/api/triage")
+app.include_router(fleet_router, prefix="/api/fleet", tags=["fleet"])
 
 @app.get("/")
 async def root():

@@ -12,6 +12,7 @@ from ..core.database import get_db
 from ..core.models import User, SystemSettings
 from ..core.security import verify_password, get_password_hash, create_access_token, create_refresh_token, get_current_user
 from ..core.config import settings
+from ..core.saml_auth import init_saml_auth
 
 router = APIRouter()
 
@@ -292,3 +293,123 @@ async def oidc_callback(request: Request, db: AsyncSession = Depends(get_db)):
         max_age=60*24*7*60
     )
     return response
+
+async def check_enterprise_tier(db: AsyncSession):
+    res = await db.execute(select(SystemSettings).where(SystemSettings.key == "license_tier"))
+    tier = res.scalars().first()
+    if tier and tier.value == "free":
+        raise HTTPException(status_code=403, detail="SAML SSO requires a Pro or Studio license.")
+    return True
+
+async def get_saml_kvs(db: AsyncSession):
+    res = await db.execute(
+        select(SystemSettings).where(
+            SystemSettings.key.in_([
+                "saml_idp_entity_id", 
+                "saml_idp_sso_url", 
+                "saml_idp_x509_cert",
+                "saml_sp_entity_id"
+            ])
+        )
+    )
+    rows = res.scalars().all()
+    kvs = {row.key: row.value for row in rows}
+    return kvs
+
+@router.get("/saml/login")
+async def saml_login(request: Request, db: AsyncSession = Depends(get_db)):
+    await check_enterprise_tier(db)
+    kvs = await get_saml_kvs(db)
+    auth = await init_saml_auth(request, kvs)
+    sso_built_url = auth.login()
+    return RedirectResponse(url=sso_built_url)
+
+@router.post("/saml/acs")
+async def saml_acs(request: Request, db: AsyncSession = Depends(get_db)):
+    await check_enterprise_tier(db)
+    kvs = await get_saml_kvs(db)
+    auth = await init_saml_auth(request, kvs)
+    
+    await request.form()
+    auth.process_response()
+    errors = auth.get_errors()
+    
+    if errors:
+        raise HTTPException(status_code=400, detail=f"SAML validation error: {', '.join(errors)}")
+        
+    if not auth.is_authenticated():
+        raise HTTPException(status_code=401, detail="SAML authentication failed.")
+        
+    email = auth.get_nameid()
+    if not email:
+        attrs = auth.get_attributes()
+        if attrs and 'email' in attrs and len(attrs['email']) > 0:
+            email = attrs['email'][0]
+        
+    if not email:
+        raise HTTPException(status_code=400, detail="Could not extract email from SAML assertion.")
+
+    result = await db.execute(select(User).where(User.email == email))
+    user = result.scalars().first()
+
+    if not user:
+        hashed_password = get_password_hash(secrets.token_urlsafe(32))
+        user = User(
+            email=email,
+            hashed_password=hashed_password,
+            is_local_disabled=False,
+            permissions=["system:write", "triage:approve"],
+            allowed_ips=[]
+        )
+        db.add(user)
+        await db.commit()
+        await db.refresh(user)
+
+    from ..core.security import ip_in_cidr
+    if user.allowed_ips:
+        client_ip = request.client.host
+        ip_allowed = False
+        for cidr in user.allowed_ips:
+            if ip_in_cidr(client_ip, cidr):
+                ip_allowed = True
+                break
+        if not ip_allowed:
+            raise HTTPException(status_code=403, detail="Forbidden: IP address not allowed")
+
+    access_token = create_access_token(data={"sub": user.email})
+    refresh_token = create_refresh_token(data={"sub": user.email})
+
+    response = RedirectResponse(url="/")
+    is_secure = settings.PUBLIC_URL.startswith("https://")
+    response.set_cookie(
+        key="kintsugi_token",
+        value=access_token,
+        httponly=True,
+        secure=is_secure,
+        samesite="lax",
+        max_age=60*60
+    )
+    response.set_cookie(
+        key="kintsugi_refresh_token",
+        value=refresh_token,
+        httponly=True,
+        secure=is_secure,
+        samesite="lax",
+        max_age=60*24*7*60
+    )
+    return response
+
+@router.get("/saml/metadata")
+async def saml_metadata(request: Request, db: AsyncSession = Depends(get_db)):
+    await check_enterprise_tier(db)
+    kvs = await get_saml_kvs(db)
+    auth = await init_saml_auth(request, kvs)
+    settings_obj = auth.get_settings()
+    metadata = settings_obj.get_sp_metadata()
+    errors = settings_obj.validate_metadata(metadata)
+    
+    if len(errors) > 0:
+        raise HTTPException(status_code=500, detail=f"Invalid SP metadata: {', '.join(errors)}")
+        
+    from fastapi.responses import Response
+    return Response(content=metadata, media_type="text/xml")

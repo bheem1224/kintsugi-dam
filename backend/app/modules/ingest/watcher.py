@@ -95,7 +95,7 @@ class TieredSettlingQueue:
             template = await SettingsManager.get("ingest_folder_template", "%Y/%m")
             try:
                 folder_path = date_taken.strftime(template)
-            except ValueError:
+            except Exception:
                 folder_path = date_taken.strftime("%Y/%m")
         else:
             template = await SettingsManager.get("fallback_folder_template", "Fallback/%Y/%m")
@@ -103,10 +103,20 @@ class TieredSettlingQueue:
                 mtime = os.stat(filepath).st_mtime
                 fallback_date = datetime.fromtimestamp(mtime)
                 folder_path = fallback_date.strftime(template)
-            except (OSError, ValueError):
+            except Exception:
                 folder_path = "Fallback/Unknown"
 
-        target_dir = os.path.join(library_root, folder_path)
+        # Prevent path traversal and absolute path overwrite vulnerabilities:
+        # Strip leading path separators and drive letters to force folder_path to be relative
+        folder_path = folder_path.lstrip("/\\")
+        if len(folder_path) > 1 and folder_path[1] == ":":
+            folder_path = folder_path[2:].lstrip("/\\")
+
+        target_dir = os.path.abspath(os.path.join(library_root, folder_path))
+        # Ensure target_dir is strictly within the library_root directory
+        if not target_dir.startswith(os.path.abspath(library_root)):
+            target_dir = os.path.join(library_root, "Fallback/Unknown")
+
         os.makedirs(target_dir, exist_ok=True)
 
         filename = os.path.basename(filepath)
@@ -119,8 +129,16 @@ class TieredSettlingQueue:
             target_path = os.path.join(target_dir, f"{base}_{timestamp}{ext}")
 
         if os.path.abspath(filepath) != os.path.abspath(target_path):
+            def _robust_move(src: str, dst: str):
+                try:
+                    os.rename(src, dst)
+                except OSError:
+                    # Fallback to stream copy and delete for cross-volume/cross-dataset moves
+                    shutil.copyfile(src, dst)
+                    os.unlink(src)
+
             try:
-                await asyncio.to_thread(shutil.move, filepath, target_path)
+                await asyncio.to_thread(_robust_move, filepath, target_path)
                 logger.info(f"Moved {filepath} to {target_path}")
             except Exception as e:
                 logger.error(f"Failed to move file {filepath}: {e}")

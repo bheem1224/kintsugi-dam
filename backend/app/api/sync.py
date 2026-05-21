@@ -19,11 +19,13 @@ async def get_webhook_api_key(
     request: Request,
     api_key_query: Optional[str] = Query(None, alias="api_key"),
     x_api_key_header: Optional[str] = Header(None, alias="X-API-Key"),
+    api_key_header: Optional[str] = Header(None, alias="api_key"),
+    api_key_header_hyphen: Optional[str] = Header(None, alias="api-key"),
     authorization: Optional[str] = Header(None),
     db: AsyncSession = Depends(get_db)
 ) -> ApiKey:
 
-    token = api_key_query or x_api_key_header
+    token = api_key_query or x_api_key_header or api_key_header or api_key_header_hyphen
 
     if not token and authorization:
         if authorization.lower().startswith("bearer "):
@@ -44,12 +46,26 @@ async def get_webhook_api_key(
         api_keys = result.scalars().all()
         plain_to_verify = token
 
+    # Check if we have candidate keys to verify
+    if not api_keys:
+        # Run a dummy bcrypt verification to consume constant time
+        # and prevent timing attacks from revealing if a prefix exists.
+        dummy_hash = "$2b$12$LqyV5wE1J7/a.4kQ4O79Ue8eR6Vqg9/u3DkHjJjP4/12345678901"
+        try:
+            verify_password("dummy_secret", dummy_hash)
+        except Exception:
+            pass
+        raise HTTPException(status_code=401, detail="Invalid API Key")
+
     valid_key = None
+    matched = False
     for ak in api_keys:
         try:
-            if verify_password(plain_to_verify, ak.hashed_key):
+            # Evaluate all candidate keys in the list to prevent timing leakage of matching index
+            is_match = verify_password(plain_to_verify, ak.hashed_key)
+            if is_match and not matched:
                 valid_key = ak
-                break
+                matched = True
         except Exception:
             continue
 

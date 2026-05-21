@@ -236,15 +236,27 @@ async def verify_mtls(request: Request, db: AsyncSession) -> FleetNode:
 
     thumbprint = None
 
-    # 1. Try to get thumbprint from proxy headers
-    if "x-ssl-client-sha1" in request.headers:
+    # 1. Cloudflare Tunnel Authenticated Origin Pull (Inbound-Free Outbound-Only)
+    if "cf-client-cert-der-base64" in request.headers:
+        import base64
+        try:
+            der_cert_b64 = request.headers.get("cf-client-cert-der-base64")
+            cert_bytes = base64.b64decode(der_cert_b64)
+            cert = x509.load_der_x509_certificate(cert_bytes)
+            # Match the same hashing algorithm used in the register endpoint (SHA1 is common for proxy thumbprints)
+            thumbprint = cert.fingerprint(hashes.SHA1()).hex().lower()
+        except Exception as e:
+            record_failure(request)
+            raise HTTPException(status_code=400, detail=f"Invalid Cloudflare Client Cert: {e}")
+
+    # 2. Try to get thumbprint from other proxy headers
+    elif "x-ssl-client-sha1" in request.headers:
         thumbprint = request.headers.get("x-ssl-client-sha1", "").lower()
     elif "x-ssl-client-cert" in request.headers:
-        # Complex to parse escaped cert, so rely on SHA1 header or connection
         pass
 
-    # 2. Try to get it from ASGI connection
-    if not thumbprint and hasattr(request.scope, 'get') and request.scope.get('client_cert'):
+    # 3. Try to get it from direct ASGI connection
+    elif hasattr(request.scope, 'get') and request.scope.get('client_cert'):
         cert_bytes = request.scope['client_cert']
         cert = x509.load_der_x509_certificate(cert_bytes)
         thumbprint = cert.fingerprint(hashes.SHA1()).hex().lower()

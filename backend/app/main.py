@@ -57,7 +57,8 @@ async def lifespan(app: FastAPI):
             "retention_days": "90",
             "approved_retention_days": "30",
             "snapshot_mount_path": "/snapshots",
-            "enable_3rd_party_plugins": "false"
+            "enable_3rd_party_plugins": "false",
+            "ai_api_endpoint": "https://api.openai.com/v1"
         }
         result = await session.execute(select(SystemSettings))
         existing_keys = {row.key for row in result.scalars().all()}

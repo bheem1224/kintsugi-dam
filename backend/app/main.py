@@ -15,7 +15,7 @@ from .api.notifications import router as notifications_router
 from .api.triage import router as triage_router
 from .modules.triage.scheduler import run_triage_daemon
 from .core.scheduler import start_scheduler
-from .core.watcher import WatcherService
+from .modules.ingest.watcher import TieredWatcherDaemon
 from .core.database import async_session_maker, engine, Base
 from .core.models import SystemSettings
 from sqlalchemy import select
@@ -106,8 +106,8 @@ async def lifespan(app: FastAPI):
     app.state.lru_daemon_task = asyncio.create_task(run_lru_daemon(async_session_maker))
     app.state.triage_daemon_task = asyncio.create_task(run_triage_daemon(async_session_maker))
 
-    app.state.watcher = WatcherService()
-    app.state.watcher.start(monitored_directory)
+    app.state.watcher = TieredWatcherDaemon()
+    await app.state.watcher.start()
 
     yield
     app.state.watcher.stop()
@@ -152,3 +152,6 @@ app.include_router(triage_router, prefix="/api/triage")
 @app.get("/")
 async def root():
     return {"message": "Kintsugi-DAM API is running"}
+
+from .api.sync import router as sync_router
+app.include_router(sync_router, prefix="/api")

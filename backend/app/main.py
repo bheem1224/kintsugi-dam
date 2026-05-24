@@ -13,6 +13,7 @@ from .api.auth import router as auth_router
 from .api.billing import router as billing_router
 from .api.notifications import router as notifications_router
 from .api.triage import router as triage_router
+from .api.fleet import router as fleet_router
 from .modules.triage.scheduler import run_triage_daemon
 from .core.scheduler import start_scheduler
 from .modules.ingest.watcher import TieredWatcherDaemon
@@ -56,7 +57,8 @@ async def lifespan(app: FastAPI):
             "retention_days": "90",
             "approved_retention_days": "30",
             "snapshot_mount_path": "/snapshots",
-            "enable_3rd_party_plugins": "false"
+            "enable_3rd_party_plugins": "false",
+            "ai_api_endpoint": "https://api.openai.com/v1"
         }
         result = await session.execute(select(SystemSettings))
         existing_keys = {row.key for row in result.scalars().all()}
@@ -148,6 +150,7 @@ app.include_router(auth_router, prefix="/api/auth", tags=["auth"])
 app.include_router(billing_router, prefix="/api/billing", tags=["billing"])
 app.include_router(notifications_router)
 app.include_router(triage_router, prefix="/api/triage")
+app.include_router(fleet_router, prefix="/api/fleet", tags=["fleet"])
 
 @app.get("/")
 async def root():

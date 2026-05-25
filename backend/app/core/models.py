@@ -117,6 +117,7 @@ class FleetNode(Base):
     quota_bytes: Mapped[Optional[int]] = mapped_column(BigInteger, nullable=True)
     registered_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now)
     last_seen_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now)
+    is_local_only: Mapped[bool] = mapped_column(Boolean, default=False)
 
 class FleetAuthority(Base):
     __tablename__ = "fleet_authority"

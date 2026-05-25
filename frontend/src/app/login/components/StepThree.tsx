@@ -87,7 +87,7 @@ export function StepThree({
                   <Label className="text-xs font-medium">Use Kintsugi-Cloud API (Fallback)</Label>
                   <p className="text-[10px] text-muted-foreground">Cost: 1 Credit = 1 Photo Restored.</p>
                 </div>
-                <Switch size="sm" checked={aiUseKintsugiCloud} onCheckedChange={setAiUseKintsugiCloud} />
+                <Switch checked={aiUseKintsugiCloud} onCheckedChange={setAiUseKintsugiCloud} />
               </div>
             </motion.div>
           )}

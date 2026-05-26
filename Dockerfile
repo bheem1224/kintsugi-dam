@@ -4,7 +4,6 @@ WORKDIR /app/frontend
 
 COPY frontend/package*.json ./
 RUN npm ci
-
 COPY frontend/ ./
 RUN npm run build
 
@@ -33,6 +32,7 @@ RUN uv pip install ./kintsugi_rs
 FROM python:3.12-slim
 WORKDIR /app
 
+# Install system dependencies, Node.js, and uv
 RUN apt-get update && apt-get install -y \
     curl \
     imagemagick \

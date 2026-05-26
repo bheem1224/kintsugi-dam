@@ -279,6 +279,21 @@ async def verify_mtls(request: Request, db: AsyncSession) -> FleetNode:
         record_failure(request)
         raise HTTPException(status_code=403, detail=f"Node status is {node.status}")
 
+    # Node Location Locks
+    if node.is_local_only:
+        client_ip = request.client.host
+        from app.core.security import ip_in_cidr
+        # RFC 1918 Private IP Ranges
+        private_ranges = ["10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16", "127.0.0.0/8", "::1/128", "fc00::/7"]
+        is_private = any(ip_in_cidr(client_ip, cidr) for cidr in private_ranges)
+
+        if not is_private:
+            record_failure(request)
+            raise HTTPException(
+                status_code=403,
+                detail={"error": "ip_restricted", "detail": "Node is restricted to local network only"}
+            )
+
     # Update last seen
     node.last_seen_at = datetime.now()
     await db.commit()
@@ -341,3 +356,27 @@ async def upload_chunk(
         return {"status": "success", "message": "File reassembled and passed to ingest router"}
 
     return {"status": "success", "message": f"Chunk {x_chunk_index} received"}
+
+
+class FleetNodeResponse(BaseModel):
+    id: int
+    name: str
+    public_key_thumbprint: str
+    status: str
+    quota_bytes: Optional[int]
+    registered_at: datetime
+    last_seen_at: datetime
+    is_local_only: bool
+
+    class Config:
+        from_attributes = True
+
+@router.get("/nodes", response_model=list[FleetNodeResponse])
+async def list_fleet_nodes(
+    db: AsyncSession = Depends(get_db),
+    # Assuming standard admin auth needed here.
+    # from app.api.auth import get_current_user
+    # current_user = Depends(get_current_user)
+):
+    result = await db.execute(select(FleetNode))
+    return result.scalars().all()

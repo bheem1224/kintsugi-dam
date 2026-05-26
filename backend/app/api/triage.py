@@ -32,12 +32,30 @@ class TriageEntryResponse(BaseModel):
 class ActionRequest(BaseModel):
     action: str # "APPROVE"
 
+from typing import Literal
+
 @router.get("/", response_model=List[TriageEntryResponse])
 async def list_triage_entries(
+    limit: int = 50,
+    offset: int = 0,
+    status: Optional[str] = None,
+    sort: Literal["asc", "desc"] = "desc",
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    result = await db.execute(select(TriageEntry))
+    query = select(TriageEntry)
+
+    if status:
+        query = query.where(TriageEntry.status == status)
+
+    if sort == "desc":
+        query = query.order_by(TriageEntry.created_at.desc())
+    else:
+        query = query.order_by(TriageEntry.created_at.asc())
+
+    query = query.limit(limit).offset(offset)
+
+    result = await db.execute(query)
     return result.scalars().all()
 
 

@@ -107,9 +107,10 @@ jobs:
         uses: docker/build-push-action@v6
         with:
           context: .
+          file: ./Dockerfile
           push: true
           tags: ${{ steps.extract_tags.outputs.tags }}
-          no-cache: ${{ steps.extract_tags.outputs.no_cache == 'true' }}
+          no-cache: ${{ github.event.inputs.no_cache == 'true' || true }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
 

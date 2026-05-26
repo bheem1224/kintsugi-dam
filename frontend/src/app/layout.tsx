@@ -6,7 +6,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { Header } from "@/components/layout/Header";
 import { Sidebar } from "@/components/layout/Sidebar";
-import { Toaster } from "@/components/ui/toaster";
+import { Toaster } from "@/components/ui/sonner";
 import Script from "next/script";
 
 const geistSans = Geist({
@@ -44,6 +44,7 @@ export default function RootLayout({
           src="https://cdn.paddle.com/paddle/v2/paddle.js"
           strategy="afterInteractive"
         />
+        <Toaster />
       </body>
     </html>
   );

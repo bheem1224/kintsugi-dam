@@ -1,36 +1,31 @@
-"use client"
+import re
 
-import { useSystem } from "@/context/SystemContext"
-import { useAuth } from "@/context/AuthContext"
-import { Button } from "@/components/ui/button"
-import { LogOut } from "lucide-react"
+with open("frontend/src/components/layout/Header.tsx", "r") as f:
+    content = f.read()
 
+imports_to_add = """
 import { Bell } from "lucide-react"
 import { useNotificationStore } from "@/store/useNotificationStore"
 import { useNexusStream } from "@/hooks/useNexusStream"
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Badge } from "@/components/ui/badge"
+"""
 
+content = content.replace('import { LogOut } from "lucide-react"', 'import { LogOut } from "lucide-react"\n' + imports_to_add)
 
-export function Header() {
-  const { stats } = useSystem();
-  const { logout, isAuthenticated } = useAuth();
-  const { token } = useAuth();
+hooks_to_add = """  const { token } = useAuth();
   useNexusStream(token);
   const { notifications, unreadCount, markAllAsRead, clearAll } = useNotificationStore();
   const unread = unreadCount();
+"""
 
+content = content.replace('  const { logout, isAuthenticated } = useAuth();', '  const { logout, isAuthenticated } = useAuth();\n' + hooks_to_add)
 
-  return (
-    <header className="h-14 border-b border-border bg-card flex items-center justify-between px-6 shrink-0">
-      <div className="font-bold text-xl text-primary">Kintsugi-DAM</div>
-      <div className="flex items-center gap-4 text-sm font-medium text-muted-foreground">
-        <div>Cloud Credits: {stats ? stats.cloud_credits.toLocaleString() : "..."}</div>
-
+bell_component = """
         {isAuthenticated && (
           <Sheet onOpenChange={(open) => { if (open) markAllAsRead() }}>
-            <SheetTrigger>
+            <SheetTrigger asChild>
               <Button variant="ghost" size="icon" className="relative" title="Notifications">
                 <Bell className="w-5 h-5" />
                 {unread > 0 && (
@@ -63,13 +58,11 @@ export function Header() {
             </SheetContent>
           </Sheet>
         )}
+"""
 
-        {isAuthenticated && (
-          <Button variant="ghost" size="icon" onClick={logout} title="Logout">
-            <LogOut className="w-4 h-4" />
-          </Button>
-        )}
-      </div>
-    </header>
-  );
-}
+content = content.replace('{isAuthenticated && (', bell_component + '\n        {isAuthenticated && (')
+
+with open("frontend/src/components/layout/Header.tsx", "w") as f:
+    f.write(content)
+
+print("Header patched")

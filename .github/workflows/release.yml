@@ -8,6 +8,10 @@ on:
       - "dev" # Safely builds a 'beta-dev' image
   workflow_dispatch: # Allows you to manually trigger a build on any branch via the GitHub UI
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 # 1. DROP ALL DEFAULT PERMISSIONS GLOBALLY
 permissions: {}
 

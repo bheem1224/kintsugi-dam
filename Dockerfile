@@ -15,6 +15,14 @@ RUN apt-get update && apt-get install -y \
     imagemagick \
     jpeginfo \
     exiftool \
+    build-essential \
+    pkg-config \
+    libxml2-dev \
+    xmlsec1-dev \
+    libxmlsec1-dev \
+    libxmlsec1-openssl \
+    rustc \
+    cargo \
     && curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
     && apt-get install -y nodejs \
     && pip install uv \
@@ -25,6 +33,7 @@ COPY backend/pyproject.toml backend/uv.lock* ./
 RUN uv sync --frozen
 
 COPY backend/ ./
+RUN uv pip install ./kintsugi_rs
 
 WORKDIR /app/frontend
 
@@ -32,6 +41,7 @@ COPY --from=frontend-builder /app/frontend/package*.json ./
 COPY --from=frontend-builder /app/frontend/node_modules ./node_modules
 COPY --from=frontend-builder /app/frontend/.next ./.next
 COPY --from=frontend-builder /app/frontend/public ./public
+COPY --from=frontend-builder /app/frontend/next.config.ts ./ 2>/dev/null || true
 COPY --from=frontend-builder /app/frontend/next.config.js ./ 2>/dev/null || true
 
 WORKDIR /app

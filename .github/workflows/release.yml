@@ -3,25 +3,38 @@ name: Build and Publish Kintsugi-DAM
 on:
   push:
     branches:
-      - "main" # Builds 'latest' stable image automatically
-      - "feature/**" # Safely builds 'beta-feature-*' images from your tracking branches
-      - "dev" # Safely builds a 'beta-dev' image
-  workflow_dispatch: # Allows you to manually trigger a build on any branch via the GitHub UI
+      - "main"
+      - "feature/**"
+      - "dev"
+  workflow_dispatch:
+    inputs:
+      no_cache:
+        description: "Force build without cache"
+        required: false
+        type: boolean
 
-# 1. DROP ALL DEFAULT PERMISSIONS GLOBALLY
+# ⚡ AUTO-CANCEL REDUNDANT RUNS OVER THE SAME BRANCH/REF
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+# Drop all default permissions globally
 permissions: {}
 
 jobs:
   build-and-push:
-    # Explicitly protect the local runner execution matrix
-    if: github.repository_owner == 'bheem1224' # Prevents forks from accidentally hijacking or triggering your runner
+    # 🔒 STrictest SECURITY FILTER: Ensures the trigger or the commit owner is explicitly you
+    if: |
+      github.repository_owner == 'bheem1224' && 
+      (github.actor == 'bheem1224' || github.event.head_commit.author.username == 'bheem1224')
+
     runs-on: [self-hosted, linux, x64]
     environment: production
 
-    # 2. GRANT ONLY REQUIRED PERMISSIONS TO THIS JOB
+    # Grant write scopes required for compilation, pushing to GHCR, and writing GitHub releases
     permissions:
-      contents: write # Required to compile assets or tag if needed
-      packages: write # Required to push the Docker image to GHCR
+      contents: write
+      packages: write
 
     steps:
       - name: Checkout repository
@@ -37,38 +50,76 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      # 3. DYNAMIC TAG PROCESSING (Replaces manual commit message parsing)
-      - name: Determine Docker Tags
+      # 🔄 THE ECHOSYNC ENGINE COMES TO KINTSUGI-DAM
+      - name: Determine Docker Tags & Version
         id: extract_tags
+        env:
+          COMMIT_MSG: ${{ github.event.head_commit.message }}
+          BRANCH_NAME: ${{ github.ref_name }}
         run: |
           BASE_IMAGE="ghcr.io/${{ github.repository_owner }}/kintsugi-dam"
 
-          # Get current branch name cleanly
-          BRANCH_NAME="${GITHUB_REF#refs/heads/}"
-
-          # Normalize the branch name to follow strict lowercase Docker tag compliance
-          CLEAN_BRANCH=$(echo "$BRANCH_NAME" | tr '[:upper:]' '[:lower:]' | tr '/' '-')
-
-          if [ "$CLEAN_BRANCH" = "main" ]; then
-            # Production builds generate both 'latest' and a rolling build timestamp
-            TIMESTAMP=$(date +'%Y%m%d%H%M%S')
-            TAGS="$BASE_IMAGE:latest,$BASE_IMAGE:stable-$TIMESTAMP"
-            echo "Building stable release tag."
+          # Only evaluate full official releases if we are on the main branch
+          if [ "$BRANCH_NAME" = "main" ] && echo "$COMMIT_MSG" | grep -qiE 'version:\s*v[0-9]+\.[0-9]+\.[0-9]+'; then
+            EXTRACTED_VERSION=$(echo "$COMMIT_MSG" | grep -ioE 'version:\s*v[0-9]+\.[0-9]+\.[0-9]+' | head -n 1 | sed -E 's/version:\s*//i')
+            
+            TAGS="$BASE_IMAGE:$EXTRACTED_VERSION,$BASE_IMAGE:latest"
+            echo "🚀 Global Release detected: $EXTRACTED_VERSION. Tagging as $EXTRACTED_VERSION and latest."
+            
+            # --- RELEASE NOTES PARSING ---
+            # Extract Line 2 as the Title
+            RELEASE_TITLE=$(echo "$COMMIT_MSG" | awk 'NR==2')
+            
+            if [ -z "$(echo "$RELEASE_TITLE" | tr -d '[:space:]')" ]; then
+              RELEASE_TITLE="Release $EXTRACTED_VERSION"
+            fi
+            
+            # Extract Line 3 and everything after it as the Body
+            RELEASE_BODY=$(echo "$COMMIT_MSG" | awk 'NR>2')
+            
+            echo "version=$EXTRACTED_VERSION" >> $GITHUB_OUTPUT
+            echo "title=$RELEASE_TITLE" >> $GITHUB_OUTPUT
+            
+            # Safely pass multi-line release notes body to GitHub outputs
+            echo "body<<EOF" >> $GITHUB_OUTPUT
+            echo "$RELEASE_BODY" >> $GITHUB_OUTPUT
+            echo "EOF" >> $GITHUB_OUTPUT
           else
-            # Feature branches create completely isolated beta tags
-            TAGS="$BASE_IMAGE:beta-$CLEAN_BRANCH"
-            echo "Building beta feature branch tag: beta-$CLEAN_BRANCH"
+            # Default tracking state: All feature, dev, and non-version main pushes map onto the unified rolling :beta tag
+            TAGS="$BASE_IMAGE:beta"
+            echo "🔍 Rolling tracking run detected. Building 'beta' tag only."
           fi
 
           echo "tags=$TAGS" >> $GITHUB_OUTPUT
 
-      # 4. BUILD THE SINGLE UNIFIED CONTAINER
+          # --- NO-CACHE DETECTION ---
+          if echo "$COMMIT_MSG" | grep -qi '\[no-cache\]' || [ "${{ github.event.inputs.no_cache }}" == "true" ]; then
+            echo "no_cache=true" >> $GITHUB_OUTPUT
+            echo "🚨 No-cache flag active! Forcing a clean Docker build."
+          else
+            echo "no_cache=false" >> $GITHUB_OUTPUT
+          fi
+
       - name: Build and push Monolith Image
         uses: docker/build-push-action@v6
         with:
           context: .
           push: true
           tags: ${{ steps.extract_tags.outputs.tags }}
-          # Enables built-in build cache optimization to save local SSD wear on your Unraid runner
+          no-cache: ${{ steps.extract_tags.outputs.no_cache == 'true' }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+
+      # 🚀 AUTOMATIC GITHUB WIKI RELEASES VIA COMMITS
+      - name: Create GitHub Release
+        if: steps.extract_tags.outputs.version != ''
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.extract_tags.outputs.version }}
+          name: ${{ steps.extract_tags.outputs.title }}
+          body: ${{ steps.extract_tags.outputs.body }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Smart Clean Docker Build Cache
+        run: docker builder prune --keep-storage 5GB -f

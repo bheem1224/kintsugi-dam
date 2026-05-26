@@ -1,15 +1,21 @@
+# ==========================================
+# STAGE 1: Build the Next.js Frontend
+# ==========================================
 FROM node:20-alpine AS frontend-builder
 WORKDIR /app/frontend
 
 COPY frontend/package*.json ./
 RUN npm ci
-
 COPY frontend/ ./
 RUN npm run build
 
+# ==========================================
+# STAGE 2: The Final Unified Image
+# ==========================================
 FROM python:3.12-slim
 WORKDIR /app
 
+# Install system dependencies, Node.js, and uv
 RUN apt-get update && apt-get install -y \
     curl \
     imagemagick \
@@ -18,7 +24,6 @@ RUN apt-get update && apt-get install -y \
     build-essential \
     pkg-config \
     libxml2-dev \
-    xmlsec1-dev \
     libxmlsec1-dev \
     libxmlsec1-openssl \
     rustc \
@@ -28,22 +33,23 @@ RUN apt-get update && apt-get install -y \
     && pip install uv \
     && rm -rf /var/lib/apt/lists/*
 
+# Setup the FastAPI Backend
 WORKDIR /app/backend
 COPY backend/pyproject.toml backend/uv.lock* ./
+# Install the python dependencies
 RUN uv sync --frozen
 
+# FIX: Actually copy the Python application code into the container
 COPY backend/ ./
-RUN uv pip install ./kintsugi_rs
 
+# Bring in the compiled Frontend from Stage 1
 WORKDIR /app/frontend
+COPY --from=frontend-builder /app/frontend ./
 
-COPY --from=frontend-builder /app/frontend/package*.json ./
-COPY --from=frontend-builder /app/frontend/node_modules ./node_modules
-COPY --from=frontend-builder /app/frontend/.next ./.next
-COPY --from=frontend-builder /app/frontend/public ./public
-COPY --from=frontend-builder /app/frontend/next.config.ts ./ 2>/dev/null || true
-COPY --from=frontend-builder /app/frontend/next.config.js ./ 2>/dev/null || true
+# Expose both ports
+EXPOSE 3000 8000
 
+# Create a startup script to run BOTH servers simultaneously
 WORKDIR /app
 RUN echo '#!/bin/bash\n\
 # FIX: Use uv run to execute uvicorn\n\

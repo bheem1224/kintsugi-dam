@@ -291,7 +291,7 @@ export default function SettingsPage() {
 
 
   return (
-    <div className="max-w-5xl mx-auto space-y-6">
+    <div className="w-full min-h-screen flex flex-col p-4 md:p-8 ml-0 space-y-6">
       <div className="flex justify-between items-center bg-card p-6 rounded-xl border border-border shadow-sm">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">System Configuration</h1>
@@ -313,7 +313,7 @@ export default function SettingsPage() {
             </TabsList>
 
             {categoryKeys.map(cat => (
-              <TabsContent key={cat} value={cat} className="focus-visible:outline-none focus-visible:ring-0">
+              <TabsContent key={cat} value={cat} className="w-full grid grid-cols-1 gap-6 pt-4 focus-visible:outline-none focus-visible:ring-0">
                 {cat === "General" && renderQoSSlider()}
 
                 {cat === "Remediation" ? (

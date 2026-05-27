@@ -1,261 +1,243 @@
 "use client"
 
 import * as React from "react"
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { useSystem } from "@/context/SystemContext"
-import { CheckCircle, ShieldAlert, Cpu, Activity, Clock, HeartPulse, AlertTriangle, Lightbulb, FolderSearch, ShieldCheck } from "lucide-react"
-import { useToast } from "@/hooks/use-toast"
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
+import {
+  ShieldAlert, Bug, ShieldCheck,
+  Cpu,
+  CheckCircle,
+  Activity,
+  Clock,
+  HeartPulse,
+  AlertTriangle,
+  FolderSearch,
+  Database,
+  Cloud,
+  Wand2,
+  HardDrive,
+  FileWarning,
+  Server,
+  Zap,
+  History,
+  Timer
+} from "lucide-react"
 
 export default function Dashboard() {
-  const { stats, loading } = useSystem();
-  const { toast } = useToast();
-  const [toastShown, setToastShown] = React.useState(false);
-  const [showWelcome, setShowWelcome] = React.useState(false);
+  const { stats, loading } = useSystem()
 
-  React.useEffect(() => {
-    // Check if first run
-    const hasSeenWelcome = localStorage.getItem("kintsugi_welcome_seen");
-    if (!hasSeenWelcome) {
-      setShowWelcome(true);
-    }
+  // MOCK DATA: Quadrant 1 (System Integrity Pool)
+  const integrityPool = {
+    totalStorage: "40 TB",
+    scannedStorage: "14.2 TB",
+    throughput: 142, // items/sec
+    zfsSnapshotSafe: true,
+  }
 
-    if (stats && !stats.watcher_active && !toastShown) {
-      toast({
-        title: "System Health Degraded",
-        description: "The background real-time folder watcher is not running.",
-        variant: "destructive"
-      });
-      setToastShown(true);
-    }
-  }, [stats, toastShown, toast]);
+  // MOCK DATA: Quadrant 2 (Deep Core Audit / Telemetry)
+  const auditTelemetry = {
+    bitRotAlerts: 42,
+    truncatedMedia: 15,
+    corruptedExif: 8,
+  }
 
-  const dismissWelcome = () => {
-    localStorage.setItem("kintsugi_welcome_seen", "true");
-    setShowWelcome(false);
-  };
+  // MOCK DATA: Quadrant 3 (Remediation Deltas)
+  const remediationDeltas = {
+    zfsRestores: 1204,
+    cloudFetches: 450,
+    aiInfills: 89,
+  }
 
-  if (loading || !stats) {
+  // MOCK DATA: Quadrant 4 (Retention Queue Clock)
+  const retentionQueue = [
+    { filename: "File_02.jpg", timeRemaining: "14h 22m", status: "critical" },
+    { filename: "IMG_9043.CR2", timeRemaining: "1d 4h", status: "warning" },
+    { filename: "backup_archive.zip", timeRemaining: "2d 12h", status: "normal" },
+    { filename: "video_clip_01.mp4", timeRemaining: "5d 0h", status: "normal" },
+  ]
+
+  if (loading) {
     return <div className="p-8">Loading dashboard...</div>
   }
 
-  const isScanning = stats.current_scanner_state === "Scanning";
-  const hasCorruption = stats.corrupted_files > 0;
-
   return (
-    <div className="space-y-6 max-w-5xl mx-auto relative">
-      {/* ... (Welcome Modal Content remains the same) */}
-      {showWelcome && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-300">
-          <Card className="w-full max-w-lg shadow-2xl border-primary/20 bg-black/80 backdrop-blur-xl">
-            <CardHeader>
-              <div className="flex items-center gap-3 mb-2">
-                <div className="p-2 bg-primary/20 rounded-lg text-primary">
-                  <Lightbulb className="w-6 h-6" />
-                </div>
-                <CardTitle className="text-2xl">Quick Start Guide</CardTitle>
-              </div>
-              <CardDescription>Your environment is ready. Here is what you can do first:</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="flex gap-4 p-3 rounded-lg hover:bg-white/5 transition-colors group">
-                <div className="p-2 bg-muted rounded-md group-hover:bg-primary/20 group-hover:text-primary transition-colors h-fit">
-                  <FolderSearch className="w-5 h-5" />
-                </div>
-                <div>
-                  <h4 className="font-semibold">Manual Scan</h4>
-                  <p className="text-sm text-muted-foreground">Head to the <strong>File Browser</strong> in the sidebar to manually trigger a deep scan of any subfolder.</p>
-                </div>
-              </div>
-              
-              <div className="flex gap-4 p-3 rounded-lg hover:bg-white/5 transition-colors group">
-                <div className="p-2 bg-muted rounded-md group-hover:bg-primary/20 group-hover:text-primary transition-colors h-fit">
-                  <ShieldCheck className="w-5 h-5" />
-                </div>
-                <div>
-                  <h4 className="font-semibold">Hot Folders</h4>
-                  <p className="text-sm text-muted-foreground">The system is currently watching your media folder. Any new file added will be instantly analyzed.</p>
-                </div>
-              </div>
-
-              <div className="flex gap-4 p-3 rounded-lg hover:bg-white/5 transition-colors group">
-                <div className="p-2 bg-muted rounded-md group-hover:bg-primary/20 group-hover:text-primary transition-colors h-fit">
-                  <Activity className="w-5 h-5" />
-                </div>
-                <div>
-                  <h4 className="font-semibold">Monitor Health</h4>
-                  <p className="text-sm text-muted-foreground">This dashboard will show real-time stats. If corruption is found, it will appear in the <strong>Triage Gallery</strong>.</p>
-                </div>
-              </div>
-
-              <Button onClick={dismissWelcome} className="w-full h-12 text-lg font-bold mt-4 shadow-[0_0_20px_rgba(var(--primary),0.3)] transition-all hover:-translate-y-0.5">
-                Got it, let&apos;s go!
-              </Button>
-            </CardContent>
-          </Card>
-        </div>
-      )}
-
+    <div className="space-y-6 max-w-7xl mx-auto h-full flex flex-col pb-safe">
       <div>
-        <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
+        <h1 className="text-3xl font-bold tracking-tight text-white/90">Dashboard</h1>
         <p className="text-muted-foreground mt-2">
-          System overview and active monitoring status.
+          Real-time system telemetry and integrity pool status.
         </p>
       </div>
 
-      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-        {/* Hero Card */}
-        <Card className="col-span-full md:col-span-2 lg:col-span-3 bg-gradient-to-br from-card to-black/60 relative overflow-hidden transition-all hover:shadow-xl hover:border-white/10">
-          <div className="absolute top-0 right-0 p-6 opacity-20 pointer-events-none">
-            {isScanning ? (
-              <Activity className="w-48 h-48 animate-pulse text-primary" />
-            ) : (
-              <Clock className="w-48 h-48 text-muted-foreground" />
-            )}
+      <div className="grid grid-cols-1 md:grid-cols-2 grid-rows-2 gap-6 flex-1 min-h-[600px]">
+        {/* Quadrant 1: System Integrity Pool */}
+        <Card className="bg-card/50 backdrop-blur-md border-white/5 flex flex-col overflow-hidden relative">
+          <div className="absolute -right-10 -top-10 opacity-5 pointer-events-none">
+            <Database className="w-64 h-64" />
           </div>
-          <CardHeader>
-            <CardTitle className="text-2xl">System Status</CardTitle>
-            <CardDescription>Real-time library analysis</CardDescription>
+          <CardHeader className="pb-4">
+            <CardTitle className="text-xl flex items-center gap-2 text-white/80">
+              <HardDrive className="w-5 h-5 text-primary" />
+              System Integrity Pool
+            </CardTitle>
           </CardHeader>
-          <CardContent className="flex flex-col gap-8">
-            <div className="flex flex-col md:flex-row gap-8 items-start md:items-center">
-              <div className="flex items-center gap-4">
-                <div className={`p-4 rounded-full ${isScanning ? "bg-primary/20 text-primary" : "bg-muted text-muted-foreground"}`}>
-                  <Activity className={`w-8 h-8 ${isScanning ? "animate-pulse" : ""}`} />
+          <CardContent className="flex-1 flex flex-col justify-between">
+            <div className="space-y-6">
+              <div>
+                <p className="text-sm font-medium text-muted-foreground mb-1">Storage Capacity Scanned</p>
+                <div className="flex items-end gap-2">
+                  <span className="text-4xl font-bold text-white/90">{integrityPool.scannedStorage}</span>
+                  <span className="text-xl text-muted-foreground pb-1">/ {integrityPool.totalStorage}</span>
                 </div>
-                <div>
-                  <p className="text-sm font-medium text-muted-foreground">Scanner State</p>
-                  <p className={`text-2xl font-bold ${isScanning ? "text-primary" : ""}`}>
-                    {stats.current_scanner_state}
-                  </p>
-                </div>
-              </div>
-
-              <div className="flex items-center gap-4">
-                <div className="p-4 rounded-full bg-muted text-foreground">
-                  <Cpu className="w-8 h-8" />
-                </div>
-                <div>
-                  <p className="text-sm font-medium text-muted-foreground">Monitored Files</p>
-                  <p className="text-2xl font-bold">
-                    {stats.total_files.toLocaleString()}
-                  </p>
+                {/* Progress bar mock */}
+                <div className="w-full bg-white/5 h-2 mt-3 rounded-full overflow-hidden">
+                  <div className="bg-primary h-full rounded-full" style={{ width: '35.5%' }}></div>
                 </div>
               </div>
 
-              <div className="flex items-center gap-4 md:ml-auto">
-                <div className={`p-4 rounded-full ${hasCorruption ? "bg-destructive/20 text-destructive" : "bg-primary/20 text-primary"}`}>
-                  {hasCorruption ? (
-                    <ShieldAlert className="w-8 h-8" />
-                  ) : (
-                    <CheckCircle className="w-8 h-8" />
-                  )}
+              <div className="grid grid-cols-2 gap-4">
+                <div className="bg-black/40 p-4 rounded-xl border border-white/5">
+                  <p className="text-xs text-muted-foreground mb-1 flex items-center gap-1"><Zap className="w-3 h-3 text-yellow-500" /> Active Throughput</p>
+                  <p className="text-2xl font-mono text-white/90">{integrityPool.throughput} <span className="text-sm text-muted-foreground">i/s</span></p>
                 </div>
-                <div>
-                  <p className="text-sm font-medium text-muted-foreground">Library Health</p>
-                  <p className={`text-2xl font-bold ${hasCorruption ? "text-destructive" : "text-primary"}`}>
-                    {hasCorruption ? "Corruption Detected" : "All Clear"}
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            <div className="flex flex-col md:flex-row gap-8 items-start md:items-center pt-6 border-t border-border/50">
-              <div className="flex items-center gap-4">
-                <div className={`p-3 rounded-full ${stats.watcher_active ? "bg-primary/20 text-primary" : "bg-destructive/20 text-destructive"}`}>
-                  {stats.watcher_active ? <HeartPulse className="w-6 h-6" /> : <AlertTriangle className="w-6 h-6" />}
-                </div>
-                <div>
-                  <p className="text-sm font-medium text-muted-foreground">System Health</p>
-                  <p className={`text-lg font-bold ${stats.watcher_active ? "text-primary" : "text-destructive"}`}>
-                    {stats.watcher_active ? "Active" : "Degraded"}
-                  </p>
-                </div>
-              </div>
-
-              <div className="flex items-center gap-4">
-                <div className="p-3 rounded-full bg-muted/50 text-muted-foreground">
-                  <ShieldAlert className="w-6 h-6" />
-                </div>
-                <div>
-                  <p className="text-sm font-medium text-muted-foreground">Quarantined Files</p>
-                  <p className="text-lg font-bold">
-                    {stats.total_quarantined.toLocaleString()}
-                  </p>
-                </div>
-              </div>
-
-              <div className="flex items-center gap-4 md:ml-auto">
-                <div className="p-3 rounded-full bg-muted/50 text-muted-foreground">
-                  <Clock className="w-6 h-6" />
-                </div>
-                <div>
-                  <p className="text-sm font-medium text-muted-foreground">Last Scan</p>
-                  <p className="text-lg font-bold">
-                    {stats.last_scan_time ? new Date(stats.last_scan_time).toLocaleString() : "Never"}
-                  </p>
+                <div className="bg-black/40 p-4 rounded-xl border border-white/5">
+                  <p className="text-xs text-muted-foreground mb-1 flex items-center gap-1"><ShieldCheck className="w-3 h-3 text-emerald-500" /> ZFS Snapshot Cache</p>
+                  <div className="flex items-center gap-2 mt-1">
+                    <div className={`w-2 h-2 rounded-full ${integrityPool.zfsSnapshotSafe ? 'bg-emerald-500 animate-pulse' : 'bg-red-500'}`} />
+                    <span className={`text-lg font-semibold ${integrityPool.zfsSnapshotSafe ? 'text-emerald-500' : 'text-red-500'}`}>
+                      {integrityPool.zfsSnapshotSafe ? "SECURE" : "VULNERABLE"}
+                    </span>
+                  </div>
                 </div>
               </div>
             </div>
           </CardContent>
         </Card>
-      </div>
 
-      {/* Recent Triage Activity Table */}
-      <Card className="bg-card/50 backdrop-blur-md border-white/5">
-        <CardHeader>
-          <CardTitle className="text-xl flex items-center gap-2">
-            <Activity className="w-5 h-5 text-primary" />
-            Recent Triage Activity
-          </CardTitle>
-          <CardDescription>Latest files flagged for remediation.</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm text-left">
-              <thead>
-                <tr className="border-b border-white/5 text-muted-foreground">
-                  <th className="pb-3 font-medium">File Name</th>
-                  <th className="pb-3 font-medium">Status</th>
-                  <th className="pb-3 font-medium text-right">Detected</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-white/5">
-                {stats.corrupted_files > 0 ? (
-                  // Mocking rows for UX demonstration if stats doesn't provide the list
-                  [
-                    { name: "IMG_2024_001.raw", status: "Corrupted", time: "2 mins ago" },
-                    { name: "Family_Video.mp4", status: "Bit-rot", time: "1 hour ago" },
-                  ].map((row, i) => (
-                    <tr key={i} className="group transition-all hover:bg-white/5 cursor-pointer">
-                      <td className="py-4 font-medium flex items-center gap-2">
-                        <ShieldAlert className="w-4 h-4 text-destructive" />
-                        {row.name}
-                      </td>
-                      <td className="py-4">
-                        <Badge variant="outline" className="bg-destructive/10 text-destructive border-destructive/20 text-[10px]">
-                          {row.status}
-                        </Badge>
-                      </td>
-                      <td className="py-4 text-right text-muted-foreground">{row.time}</td>
-                    </tr>
-                  ))
-                ) : (
-                  <tr>
-                    <td colSpan={3} className="py-12 text-center text-muted-foreground">
-                      <div className="flex flex-col items-center gap-2">
-                        <CheckCircle className="w-8 h-8 text-primary/50" />
-                        <p>No active triage items. Library is clean.</p>
-                      </div>
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
+        {/* Quadrant 2: Deep Core Audit / Telemetry */}
+        <Card className="bg-card/50 backdrop-blur-md border-white/5 flex flex-col overflow-hidden relative">
+          <div className="absolute -right-10 -top-10 opacity-5 pointer-events-none">
+            <Activity className="w-64 h-64" />
           </div>
-        </CardContent>
-      </Card>
+          <CardHeader className="pb-4">
+            <CardTitle className="text-xl flex items-center gap-2 text-white/80">
+              <ShieldAlert className="w-5 h-5 text-destructive" />
+              Deep Core Audit Telemetry
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="flex-1 flex flex-col justify-center gap-4">
+            <div className="flex items-center justify-between p-4 bg-destructive/10 border border-destructive/20 rounded-xl">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-destructive/20 rounded-lg">
+                  <Bug className="w-6 h-6 text-destructive" />
+                </div>
+                <div>
+                  <p className="font-semibold text-destructive">Bit-Rot Alerts</p>
+                  <p className="text-xs text-destructive/70">Cryptographic hash mismatch</p>
+                </div>
+              </div>
+              <span className="text-3xl font-bold text-destructive">{auditTelemetry.bitRotAlerts}</span>
+            </div>
+
+            <div className="flex items-center justify-between p-4 bg-yellow-500/10 border border-yellow-500/20 rounded-xl">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-yellow-500/20 rounded-lg">
+                  <FileWarning className="w-6 h-6 text-yellow-500" />
+                </div>
+                <div>
+                  <p className="font-semibold text-yellow-500">Truncated Media</p>
+                  <p className="text-xs text-yellow-500/70">Incomplete file payloads</p>
+                </div>
+              </div>
+              <span className="text-3xl font-bold text-yellow-500">{auditTelemetry.truncatedMedia}</span>
+            </div>
+
+            <div className="flex items-center justify-between p-4 bg-orange-500/10 border border-orange-500/20 rounded-xl">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-orange-500/20 rounded-lg">
+                  <AlertTriangle className="w-6 h-6 text-orange-500" />
+                </div>
+                <div>
+                  <p className="font-semibold text-orange-500">Corrupted EXIF/Headers</p>
+                  <p className="text-xs text-orange-500/70">Malformed metadata</p>
+                </div>
+              </div>
+              <span className="text-3xl font-bold text-orange-500">{auditTelemetry.corruptedExif}</span>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Quadrant 3: Remediation Deltas */}
+        <Card className="bg-card/50 backdrop-blur-md border-white/5 flex flex-col overflow-hidden relative">
+          <div className="absolute -right-10 -top-10 opacity-5 pointer-events-none">
+            <History className="w-64 h-64" />
+          </div>
+          <CardHeader className="pb-4">
+            <CardTitle className="text-xl flex items-center gap-2 text-white/80">
+              <CheckCircle className="w-5 h-5 text-primary" />
+              Remediation Deltas
+            </CardTitle>
+            <CardDescription>Cumulative automated corrections</CardDescription>
+          </CardHeader>
+          <CardContent className="flex-1 flex gap-4">
+            <div className="flex-1 flex flex-col justify-center items-center p-4 bg-black/40 rounded-xl border border-white/5 text-center transition-colors hover:bg-white/5">
+              <Server className="w-8 h-8 text-blue-400 mb-3" />
+              <span className="text-3xl font-bold text-white/90">{remediationDeltas.zfsRestores.toLocaleString()}</span>
+              <span className="text-xs text-muted-foreground mt-1 uppercase tracking-wider">ZFS Restores</span>
+            </div>
+            <div className="flex-1 flex flex-col justify-center items-center p-4 bg-black/40 rounded-xl border border-white/5 text-center transition-colors hover:bg-white/5">
+              <Cloud className="w-8 h-8 text-cyan-400 mb-3" />
+              <span className="text-3xl font-bold text-white/90">{remediationDeltas.cloudFetches.toLocaleString()}</span>
+              <span className="text-xs text-muted-foreground mt-1 uppercase tracking-wider">Cloud Fetches</span>
+            </div>
+            <div className="flex-1 flex flex-col justify-center items-center p-4 bg-black/40 rounded-xl border border-white/5 text-center transition-colors hover:bg-white/5">
+              <Wand2 className="w-8 h-8 text-purple-400 mb-3" />
+              <span className="text-3xl font-bold text-white/90">{remediationDeltas.aiInfills.toLocaleString()}</span>
+              <span className="text-xs text-muted-foreground mt-1 uppercase tracking-wider">AI Infills</span>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Quadrant 4: Retention Queue Clock */}
+        <Card className="bg-card/50 backdrop-blur-md border-white/5 flex flex-col overflow-hidden relative">
+           <div className="absolute -right-10 -top-10 opacity-5 pointer-events-none">
+            <Timer className="w-64 h-64" />
+          </div>
+          <CardHeader className="pb-4">
+            <CardTitle className="text-xl flex items-center gap-2 text-white/80">
+              <Clock className="w-5 h-5 text-orange-400" />
+              Retention Queue Clock
+            </CardTitle>
+            <CardDescription>Items nearing automated pruning deadlines</CardDescription>
+          </CardHeader>
+          <CardContent className="flex-1 overflow-hidden">
+             <div className="space-y-3 h-full overflow-y-auto pr-2 custom-scrollbar">
+                {retentionQueue.map((item, i) => (
+                  <div key={i} className="flex items-center justify-between p-3 bg-black/40 rounded-lg border border-white/5">
+                    <div className="flex items-center gap-3 overflow-hidden">
+                      <div className={`w-2 h-2 rounded-full shrink-0 ${
+                        item.status === 'critical' ? 'bg-destructive animate-pulse' :
+                        item.status === 'warning' ? 'bg-yellow-500' : 'bg-primary'
+                      }`} />
+                      <span className="text-sm font-medium text-white/80 truncate">{item.filename}</span>
+                    </div>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <span className="text-xs text-muted-foreground">Pruning in</span>
+                      <Badge variant="outline" className={`font-mono ${
+                        item.status === 'critical' ? 'border-destructive text-destructive' :
+                        item.status === 'warning' ? 'border-yellow-500 text-yellow-500' : 'border-white/20 text-muted-foreground'
+                      }`}>
+                        {item.timeRemaining}
+                      </Badge>
+                    </div>
+                  </div>
+                ))}
+             </div>
+          </CardContent>
+        </Card>
+      </div>
     </div>
   )
 }

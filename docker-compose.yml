@@ -8,6 +8,6 @@ services:
       - "3000:3000" # Frontend UI
       - "8000:8000" # Backend API
     volumes:
-      - ./backend/data:/app/backend/data
+      - ./backend/data:/app/data
       - /path/to/user/media:/media:rw
     restart: unless-stopped

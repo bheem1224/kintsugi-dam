@@ -1,17 +1,36 @@
-# ==========================================
-# STAGE 1: Build the Next.js Frontend
-# ==========================================
-FROM node:20-alpine AS frontend-builder
+# Stage 1: Build Next.js frontend (using slim Debian-based Node image to match glibc of runtime)
+FROM node:20-slim AS frontend-builder
 WORKDIR /app/frontend
 
 COPY frontend/package*.json ./
-RUN npm ci
+RUN --mount=type=cache,target=/root/.npm npm ci
 COPY frontend/ ./
-RUN npm run build
+RUN --mount=type=cache,target=/app/frontend/.next/cache npm run build
 
-# ==========================================
-# STAGE 2: The Final Unified Image
-# ==========================================
+# Stage 2: Build Python dependencies and compile Rust extensions
+FROM python:3.12-slim AS backend-builder
+WORKDIR /app/backend
+
+RUN apt-get update && apt-get install -y \
+    build-essential \
+    pkg-config \
+    libxml2-dev \
+    libxmlsec1-dev \
+    rustc \
+    cargo \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN pip install uv
+
+COPY backend/pyproject.toml backend/uv.lock* ./
+RUN --mount=type=cache,target=/root/.cache/uv uv sync --frozen
+
+COPY backend/ ./
+RUN --mount=type=cache,target=/root/.cargo/registry \
+    --mount=type=cache,target=/app/backend/kintsugi_rs/target \
+    uv pip install ./kintsugi_rs
+
+# Stage 3: Production runtime image
 FROM python:3.12-slim
 WORKDIR /app
 
@@ -21,28 +40,25 @@ RUN apt-get update && apt-get install -y \
     imagemagick \
     jpeginfo \
     exiftool \
+    libxmlsec1-openssl \
     && curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
     && apt-get install -y nodejs \
     && pip install uv \
     && rm -rf /var/lib/apt/lists/*
 
-# Setup the FastAPI Backend
+# Copy backend and its pre-compiled virtual environment
 WORKDIR /app/backend
-COPY backend/pyproject.toml backend/uv.lock* ./
-# Install the python dependencies
-RUN uv sync --frozen
-
-# FIX: Actually copy the Python application code into the container
+COPY --from=backend-builder /app/backend/.venv ./.venv
 COPY backend/ ./
 
-# Bring in the compiled Frontend from Stage 1
+# Copy frontend build artifacts and configuration
 WORKDIR /app/frontend
-COPY --from=frontend-builder /app/frontend ./
+COPY --from=frontend-builder /app/frontend/package*.json ./
+COPY --from=frontend-builder /app/frontend/node_modules ./node_modules
+COPY --from=frontend-builder /app/frontend/.next ./.next
+COPY --from=frontend-builder /app/frontend/public ./public
+COPY --from=frontend-builder /app/frontend/next.config.* ./
 
-# Expose both ports
-EXPOSE 3000 8000
-
-# Create a startup script to run BOTH servers simultaneously
 WORKDIR /app
 RUN echo '#!/bin/bash\n\
 # FIX: Use uv run to execute uvicorn\n\

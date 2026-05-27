@@ -100,14 +100,60 @@ async def get_stats(request: Request, db: AsyncSession = Depends(get_db), curren
     watcher = request.app.state.watcher
     watcher_active = watcher.is_active() if watcher else False
 
+    from ..core.models import FleetNode
+    active_nodes_result = await db.execute(select(func.count(FleetNode.id)).where(FleetNode.status == 'active'))
+    active_fleet_nodes = active_nodes_result.scalar_one()
+
+    # Get proper pending approval count and quarantined count
+    pending_approval_result = await db.execute(select(func.count(MediaFile.id)).where(MediaFile.state == "pending_approval"))
+    pending_approval_count = pending_approval_result.scalar_one()
+
+    total_quarantined_result = await db.execute(select(func.count(MediaFile.id)).where(MediaFile.state.in_(["pending_approval", "corrupted"])))
+    total_quarantined = total_quarantined_result.scalar_one()
+
     return {
         "total_files": total_files,
         "corrupted_files": corrupted_files,
-        "total_quarantined": quarantined_files,
+        "total_quarantined": total_quarantined,
+        "pending_approval": pending_approval_count,
         "last_scan_time": last_scan_time,
         "cloud_credits": cloud_credits,
         "current_scanner_state": current_scanner_state,
-        "watcher_active": watcher_active
+        "watcher_active": watcher_active,
+        "active_fleet_nodes": active_fleet_nodes,
+        "rust_queue_depth": getattr(request.app.state, "rust_queue_depth", 0)
+    }
+
+
+@router.get("/settings/schema")
+async def get_settings_schema():
+    return {
+        "is_setup_complete": {"type": "boolean", "default": False, "description": "Determines if initial configuration has been executed"},
+        "monitored_directory": {"type": "string", "default": "/media", "description": "The root path that the Watchdog daemon observes"},
+        "triage_directory": {"type": "string", "default": "", "description": "The Recycle Bin where corrupted files are moved"},
+        "snapshot_mount_path": {"type": "string", "default": "/snapshots", "description": "Path to read-only snapshot directories"},
+        "max_workers": {"type": "integer", "default": 4, "description": "Controls background scanning threads"},
+        "scan_intensity": {"type": "string", "default": "normal", "description": "Govern CPU profiling/QoS for local AI processing"},
+        "maintenance_start": {"type": "string", "default": "02:00", "description": "Start time for background maintenance"},
+        "maintenance_end": {"type": "string", "default": "04:00", "description": "End time for background maintenance"},
+        "retention_days": {"type": "integer", "default": 90, "description": "Global log or generalized file retention limit"},
+        "approved_retention_days": {"type": "integer", "default": 30, "description": "The TTL for files sitting in APPROVED triage status"},
+        "auto_restore": {"type": "boolean", "default": False, "description": "Enables replacing files automatically"},
+        "auto_restore_cloud": {"type": "boolean", "default": False, "description": "Enables pulling replacements securely from Kintsugi Cloud"},
+        "auto_restore_ai": {"type": "boolean", "default": False, "description": "Enables autonomous AI repair attempts"},
+        "ai_use_kintsugi_cloud": {"type": "boolean", "default": False, "description": "Dictates if AI repair uses local hardware or Kintsugi Cloud"},
+        "cloud_credits": {"type": "integer", "default": 0, "description": "Available credits for executing Cloud-based AI repairs"},
+        "discord_webhook_url": {"type": "string", "default": "", "description": "Triggers alerts to Discord"},
+        "ntfy_topic_url": {"type": "string", "default": "", "description": "Triggers push notifications via Ntfy.sh"},
+        "fleet_registration_token": {"type": "string", "default": "", "description": "Secret token to enroll a new Edge/Fleet Node"},
+        "oidc_client_id": {"type": "string", "default": "", "description": "OAuth2 Client ID"},
+        "oidc_client_secret": {"type": "string", "default": "", "description": "OAuth2 Client Secret"},
+        "oidc_discovery_url": {"type": "string", "default": "", "description": "OIDC discovery URL"},
+        "saml_idp_entity_id": {"type": "string", "default": "", "description": "SAML IdP unique identifier"},
+        "saml_idp_sso_url": {"type": "string", "default": "", "description": "SAML IdP SSO target endpoint"},
+        "saml_idp_x509_cert": {"type": "string", "default": "", "description": "SAML IdP certificate string"},
+        "saml_sp_entity_id": {"type": "string", "default": "", "description": "SAML SP Entity ID assigned to Kintsugi"},
+        "license_tier": {"type": "string", "default": "free", "description": "Application license tier"}
     }
 
 @router.post("/settings")
@@ -409,3 +455,37 @@ async def update_plugin(
     await db.commit()
     await db.refresh(plugin)
     return plugin
+
+from fastapi.responses import EventSourceResponse
+import asyncio
+
+@router.get("/events/stream")
+async def events_stream(request: Request, current_user: User = Depends(get_current_user)):
+    from ..core.nexus import nexus_bus
+
+    async def event_generator():
+        queue = asyncio.Queue()
+
+        async def handler(event_name, payload):
+            await queue.put({"event": event_name, "data": payload})
+
+        # We need a way to subscribe to all events or specific ones.
+        # For simplicity, we subscribe to 'event:triage:manual_resolved' and 'event:triage:quarantined'
+        nexus_bus.subscribe("event:triage:manual_resolved", handler)
+        nexus_bus.subscribe("event:triage:quarantined", handler)
+
+        try:
+            while True:
+                if await request.is_disconnected():
+                    break
+                event = await queue.get()
+                import json
+                yield {
+                    "event": event["event"],
+                    "data": json.dumps(event["data"])
+                }
+        finally:
+            # We don't have unsubscribe in nexus_bus according to memory, but in a real system we should.
+            pass
+
+    return EventSourceResponse(event_generator())

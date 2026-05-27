@@ -8,6 +8,14 @@ import { Button } from "@/components/ui/button"
 import { Shield, ChevronRight, Zap, ChevronLeft } from "lucide-react"
 import { useRouter } from "next/navigation"
 
+import { useForm } from "react-hook-form"
+import { zodResolver } from "@hookform/resolvers/zod"
+import * as z from "zod"
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form"
+import { Input } from "@/components/ui/input"
+import { toast } from "sonner"
+
+
 // Step Components
 import { StepAdmin } from "./components/StepAdmin"
 import { StepPaths } from "./components/StepPaths"
@@ -17,6 +25,24 @@ import { StepFour } from "./components/StepFour"
 export default function LoginPage() {
   const { login } = useAuth()
   const router = useRouter()
+
+  const [isShaking, setIsShaking] = React.useState(false)
+
+  const loginSchema = z.object({
+    username: z.string().min(1, "Username is required"),
+    password: z.string().min(1, "Password is required"),
+  })
+
+  type LoginFormValues = z.infer<typeof loginSchema>
+
+  const form = useForm<LoginFormValues>({
+    resolver: zodResolver(loginSchema),
+    defaultValues: {
+      username: "",
+      password: "",
+    },
+  })
+
 
   const [setupRequired, setSetupRequired] = React.useState<boolean | null>(null)
   const [adminExists, setAdminExists] = React.useState(false)
@@ -77,15 +103,14 @@ export default function LoginPage() {
     setCurrentStep(newStep)
   }
 
-  const handleLogin = async (e?: React.FormEvent) => {
-    if (e) e.preventDefault()
+  const handleLoginSubmit = async (values: LoginFormValues) => {
     setError("")
     setLoading(true)
 
     try {
       const formData = new URLSearchParams()
-      formData.append("username", username)
-      formData.append("password", password)
+      formData.append("username", values.username)
+      formData.append("password", values.password)
 
       const res = await fetch("/api/auth/login", {
         method: "POST",
@@ -101,17 +126,37 @@ export default function LoginPage() {
           paginate(2)
         } else {
           login(data.access_token)
+          router.push("/")
         }
       } else {
+        if (res.status === 403) {
+           const data = await res.json()
+           if (data.error === "ip_restricted") {
+              setIsShaking(true)
+              setTimeout(() => setIsShaking(false), 500)
+              toast.error("Access Denied: You must be on the local studio network to log into this account.", {
+                style: { backgroundColor: 'red', color: 'white', border: 'none' }
+              })
+              setError("Access Denied: IP Restricted.")
+              setLoading(false)
+              return
+           }
+        }
         const data = await res.json()
-        setError(data.detail || "Authentication failed")
+        setError(data.detail || "Invalid credentials")
       }
     } catch (err) {
-      setError("Network error. Please ensure the backend is running.")
+      setError("Network error. Is the backend running?")
     } finally {
       setLoading(false)
     }
   }
+
+  // Wrapper for the non-react-hook-form wizard submission
+  const handleLogin = async () => {
+     handleLoginSubmit({ username, password });
+  }
+
 
   const handleAdminCreation = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -234,7 +279,11 @@ export default function LoginPage() {
             <h1 className="text-3xl font-bold tracking-tight">Kintsugi-DAM</h1>
             <p className="text-muted-foreground mt-2 text-center">Secure digital asset management and automated healing.</p>
           </div>
-          <Card className="shadow-2xl border-white/10 bg-black/50 backdrop-blur-xl">
+          <motion.div
+            animate={isShaking ? { x: [-10, 10, -10, 10, -5, 5, -2, 2, 0] } : {}}
+            transition={{ duration: 0.5 }}
+          >
+            <Card className="shadow-2xl border-white/10 bg-black/50 backdrop-blur-xl">
              {/* Simple login form kept inline for non-setup flow */}
              <div className="p-6 space-y-4">
               <h2 className="text-xl font-bold">Sign In</h2>
@@ -249,14 +298,41 @@ export default function LoginPage() {
                 </div>
               )}
               
-              <form onSubmit={handleLogin} className="space-y-4">
-                <div className="space-y-2"><label className="text-sm font-medium">Username</label><input className="w-full bg-white/5 border border-white/10 rounded-md p-2" value={username} onChange={(e) => setUsername(e.target.value)} required /></div>
-                <div className="space-y-2"><label className="text-sm font-medium">Password</label><input className="w-full bg-white/5 border border-white/10 rounded-md p-2" type="password" value={password} onChange={(e) => setPassword(e.target.value)} required /></div>
-                {error && <div className="text-xs text-red-500">{error}</div>}
-                <Button type="submit" className="w-full transition-all hover:-translate-y-0.5 hover:shadow-lg" disabled={loading}>{loading ? "Authenticating..." : "Sign In"}</Button>
-              </form>
+              <Form {...form}>
+                <form onSubmit={form.handleSubmit(handleLoginSubmit)} className="space-y-4">
+                  <FormField
+                    control={form.control}
+                    name="username"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Username</FormLabel>
+                        <FormControl>
+                          <Input className="w-full bg-white/5 border border-white/10 rounded-md p-2" {...field} onChange={(e) => { field.onChange(e); setUsername(e.target.value) }} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="password"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Password</FormLabel>
+                        <FormControl>
+                          <Input type="password" className="w-full bg-white/5 border border-white/10 rounded-md p-2" {...field} onChange={(e) => { field.onChange(e); setPassword(e.target.value) }} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  {error && <div className="text-xs text-red-500">{error}</div>}
+                  <Button type="submit" className="w-full transition-all hover:-translate-y-0.5 hover:shadow-lg" disabled={loading}>{loading ? "Authenticating..." : "Sign In"}</Button>
+                </form>
+              </Form>
             </div>
           </Card>
+          </motion.div>
         </div>
       </div>
     )

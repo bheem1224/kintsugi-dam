@@ -17,7 +17,7 @@ permissions: {}
 
 jobs:
   build-and-push:
-    # Ensure the run is triggered by you
+    # 🔒 STrictest SECURITY FILTER: Ensures the trigger or the commit owner is explicitly you
     if: |
       github.repository_owner == 'bheem1224' && 
       (github.actor == 'bheem1224' || github.event.head_commit.author.username == 'bheem1224')
@@ -25,6 +25,7 @@ jobs:
     runs-on: [self-hosted, linux, x64]
     environment: production
 
+    # Grant write scopes required for compilation, pushing to GHCR, and writing GitHub releases
     permissions:
       contents: write
       packages: write
@@ -43,6 +44,7 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      # 🔄 THE ECHOSYNC ENGINE COMES TO KINTSUGI-DAM
       - name: Determine Docker Tags & Version
         id: extract_tags
         env:
@@ -59,11 +61,14 @@ jobs:
             echo "🚀 Global Release detected: $EXTRACTED_VERSION. Tagging as $EXTRACTED_VERSION and latest."
             
             # --- RELEASE NOTES PARSING ---
+            # Extract Line 2 as the Title
             RELEASE_TITLE=$(echo "$COMMIT_MSG" | awk 'NR==2')
+            
             if [ -z "$(echo "$RELEASE_TITLE" | tr -d '[:space:]')" ]; then
               RELEASE_TITLE="Release $EXTRACTED_VERSION"
             fi
             
+            # Extract Line 3 and everything after it as the Body
             RELEASE_BODY=$(echo "$COMMIT_MSG" | awk 'NR>2')
             
             echo "version=$EXTRACTED_VERSION" >> $GITHUB_OUTPUT
@@ -74,7 +79,7 @@ jobs:
             echo "$RELEASE_BODY" >> $GITHUB_OUTPUT
             echo "EOF" >> $GITHUB_OUTPUT
           else
-            # Default to beta tag for rolling/development commits
+            # Default tracking state: All feature, dev, and non-version main pushes map onto the unified rolling :beta tag
             TAGS="$BASE_IMAGE:beta"
             echo "🔍 Rolling tracking run detected. Building 'beta' tag only."
           fi
@@ -84,6 +89,7 @@ jobs:
           # --- NO-CACHE DETECTION ---
           if echo "$COMMIT_MSG" | grep -qi '\[no-cache\]' || [ "${{ github.event.inputs.no_cache }}" == "true" ]; then
             echo "no_cache=true" >> $GITHUB_OUTPUT
+            echo "🚨 No-cache flag active! Forcing a clean Docker build."
           else
             echo "no_cache=false" >> $GITHUB_OUTPUT
           fi
@@ -96,10 +102,10 @@ jobs:
           push: true
           tags: ${{ steps.extract_tags.outputs.tags }}
           no-cache: ${{ steps.extract_tags.outputs.no_cache == 'true' }}
-          # Use registry-backed caching for reliable self-hosted runner caching
-          cache-from: type=registry,ref=ghcr.io/${{ github.repository_owner }}/kintsugi-dam:buildcache
-          cache-to: type=registry,ref=ghcr.io/${{ github.repository_owner }}/kintsugi-dam:buildcache,mode=max
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
 
+      # 🚀 AUTOMATIC GITHUB WIKI RELEASES VIA COMMITS
       - name: Create GitHub Release
         if: steps.extract_tags.outputs.version != ''
         uses: softprops/action-gh-release@v2
@@ -109,3 +115,6 @@ jobs:
           body: ${{ steps.extract_tags.outputs.body }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Smart Clean Docker Build Cache
+        run: docker builder prune --keep-storage 5GB -f

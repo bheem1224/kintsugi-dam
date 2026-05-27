@@ -3,9 +3,9 @@ FROM node:20-slim AS frontend-builder
 WORKDIR /app/frontend
 
 COPY frontend/package*.json ./
-RUN npm ci
+RUN --mount=type=cache,target=/root/.npm npm ci
 COPY frontend/ ./
-RUN npm run build
+RUN --mount=type=cache,target=/app/frontend/.next/cache npm run build
 
 # Stage 2: Build Python dependencies and compile Rust extensions
 FROM python:3.12-slim AS backend-builder
@@ -23,10 +23,12 @@ RUN apt-get update && apt-get install -y \
 RUN pip install uv
 
 COPY backend/pyproject.toml backend/uv.lock* ./
-RUN uv sync --frozen
+RUN --mount=type=cache,target=/root/.cache/uv uv sync --frozen
 
 COPY backend/ ./
-RUN uv pip install ./kintsugi_rs
+RUN --mount=type=cache,target=/root/.cargo/registry \
+    --mount=type=cache,target=/app/backend/kintsugi_rs/target \
+    uv pip install ./kintsugi_rs
 
 # Stage 3: Production runtime image
 FROM python:3.12-slim

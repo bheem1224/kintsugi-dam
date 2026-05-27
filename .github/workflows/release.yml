@@ -13,12 +13,6 @@ on:
         required: false
         type: boolean
 
-# ⚡ AUTO-CANCEL REDUNDANT RUNS OVER THE SAME BRANCH/REF
-concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
-
-# Drop all default permissions globally
 permissions: {}
 
 jobs:
@@ -104,6 +98,7 @@ jobs:
         uses: docker/build-push-action@v6
         with:
           context: .
+          file: ./Dockerfile
           push: true
           tags: ${{ steps.extract_tags.outputs.tags }}
           no-cache: ${{ steps.extract_tags.outputs.no_cache == 'true' }}

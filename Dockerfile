@@ -61,11 +61,12 @@ COPY --from=frontend-builder /app/frontend/next.config.* ./
 
 WORKDIR /app
 RUN echo '#!/bin/bash\n\
-# FIX: Use uv run to execute uvicorn\n\
+# 🚀 Spin up both underlying system daemons in the background channel\n\
 cd /app/backend && uv run uvicorn app.main:app --host 0.0.0.0 --port 8000 &\n\
 cd /app/frontend && npm start &\n\
-wait -n\n\
-exit $?\n\
+\n\
+# 🔥 THE CRITICAL FIX: Block container exit until BOTH background processes physically die\n\
+wait\n\
 ' > start.sh && chmod +x start.sh
 
 CMD ["./start.sh"]

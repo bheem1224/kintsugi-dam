@@ -25,7 +25,24 @@ import {
   Timer
 } from "lucide-react"
 
+
+import { useState, useEffect } from 'react';
+
 export default function Dashboard() {
+  const [stats, setStats] = useState({
+    total_scanned: 0,
+    bit_rot_alerts: 0,
+    remediation_deltas: 0,
+    ttl_expirations: 0
+  });
+
+  useEffect(() => {
+    fetch('/api/stats')
+      .then(r => r.json())
+      .then(setStats)
+      .catch(console.error);
+  }, []);
+
   const { stats, loading } = useSystem()
 
   // MOCK DATA: Quadrant 1 (System Integrity Pool)

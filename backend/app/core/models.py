@@ -112,6 +112,7 @@ class FleetNode(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True)
     name: Mapped[str] = mapped_column(String, unique=True)
+    node_type: Mapped[str] = mapped_column(String, default="Ingestion Gateway") # Ingestion Gateway or Compute Worker
     public_key_thumbprint: Mapped[str] = mapped_column(String, unique=True, index=True)
     status: Mapped[str] = mapped_column(String, default="active")
     quota_bytes: Mapped[Optional[int]] = mapped_column(BigInteger, nullable=True)
@@ -126,3 +127,10 @@ class FleetAuthority(Base):
     private_key_pem: Mapped[str] = mapped_column(String)
     public_cert_pem: Mapped[str] = mapped_column(String)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now)
+
+class Profile(Base):
+    __tablename__ = "profiles"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    name: Mapped[str] = mapped_column(String, unique=True, index=True)
+    payload_json: Mapped[dict] = mapped_column(JSON, default=dict)

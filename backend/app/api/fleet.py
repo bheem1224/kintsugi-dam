@@ -361,6 +361,7 @@ async def upload_chunk(
 class FleetNodeResponse(BaseModel):
     id: int
     name: str
+    node_type: str
     public_key_thumbprint: str
     status: str
     quota_bytes: Optional[int]

@@ -11,6 +11,9 @@ import { Slider } from "@/components/ui/slider"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { useAuth } from "@/context/AuthContext"
 import { toast } from "sonner"
+import { UsersAndAccess } from "@/components/UsersAndAccess"
+import { ProfileBuilder } from "@/components/ProfileBuilder"
+import { DirectoryPicker } from "@/components/DirectoryPicker"
 import { Save, Plus, ArrowDown, DatabaseBackup, Cloud, Sparkles, UserCheck, Clock, ShieldAlert } from "lucide-react"
 
 import {
@@ -36,6 +39,22 @@ type Schema = {
 
 type CategorizedSettings = {
   [category: string]: { key: string, field: SchemaField }[]
+}
+
+
+function DirPickerWrapper({ field }: { field: any }) {
+  const [isOpen, setIsOpen] = React.useState(false);
+  return (
+    <>
+      <Button type="button" variant="outline" onClick={() => setIsOpen(true)}>Browse</Button>
+      <DirectoryPicker
+        value={field.value || ''}
+        onChange={(val) => { field.onChange(val); setIsOpen(false); }}
+        isOpen={isOpen}
+        onClose={() => setIsOpen(false)}
+      />
+    </>
+  );
 }
 
 export default function SettingsPage() {

@@ -46,6 +46,7 @@ class MediaFileResponse(BaseModel):
 class AIRepairRequest(BaseModel):
     context_file_ids: List[int]
     provider: str
+    custom_prompt: Optional[str] = None
 
 
 class AIRepairResponse(BaseModel):

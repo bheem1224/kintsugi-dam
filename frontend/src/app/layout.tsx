@@ -1,11 +1,8 @@
 import { AuthProvider } from "@/context/AuthContext";
 import { AuthGuard } from "@/components/layout/AuthGuard";
-import { SystemProvider } from "@/context/SystemContext";
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
-import { Header } from "@/components/layout/Header";
-import { Sidebar } from "@/components/layout/Sidebar";
 import { Toaster } from "@/components/ui/sonner";
 import Script from "next/script";
 
@@ -23,6 +20,14 @@ export const metadata: Metadata = {
   title: "Kintsugi-DAM",
   description: "AI-powered Digital Asset Management",
 };
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 1,
+  userScalable: false,
+  viewportFit: "cover",
+}
 
 export default function RootLayout({
   children,

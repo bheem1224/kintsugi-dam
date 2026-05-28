@@ -62,38 +62,29 @@ export default function BrowserPage() {
   }, [isProcessing])
 
   React.useEffect(() => {
-    // Fetch mock data for the selected path
-    setLoading(true);
-    setTimeout(() => {
-      let mockItems: FSItem[] = [];
-      if (currentPath === "/media") {
-        mockItems = [
-          { name: "vacation_2023", type: "directory", path: "/media/vacation_2023" },
-          { name: "family_photos", type: "directory", path: "/media/family_photos" },
-          { name: "IMG_001.jpg", type: "file", path: "/media/IMG_001.jpg", size: 4500000, status: "clean" },
-          { name: "IMG_002.jpg", type: "file", path: "/media/IMG_002.jpg", size: 3200000, status: "clean" },
-          { name: "IMG_003_corrupt.jpg", type: "file", path: "/media/IMG_003_corrupt.jpg", size: 1200000, status: "rotten" },
-          { name: "IMG_004_truncated.jpg", type: "file", path: "/media/IMG_004_truncated.jpg", size: 500000, status: "warning" },
-        ];
-      } else if (currentPath === "/watch") {
-         mockItems = [
-          { name: "new_upload_01.mp4", type: "file", path: "/watch/new_upload_01.mp4", size: 14500000, status: "clean" },
-          { name: "DSC_0492_RAW.cr2", type: "file", path: "/watch/DSC_0492_RAW.cr2", size: 28000000, status: "clean" },
-        ];
-      } else if (currentPath === "/quarantine") {
-         mockItems = [
-          { name: "infected_payload.bin", type: "file", path: "/quarantine/infected_payload.bin", size: 1024, status: "rotten" },
-          { name: "ransomware_note.txt", type: "file", path: "/quarantine/ransomware_note.txt", size: 512, status: "rotten" },
-        ];
-      } else {
-        mockItems = [
-          { name: "photo_1.jpg", type: "file", path: `${currentPath}/photo_1.jpg`, size: 2000000, status: "clean" },
-          { name: "photo_2.jpg", type: "file", path: `${currentPath}/photo_2.jpg`, size: 2200000, status: "clean" },
-        ];
+    async function loadDirectory() {
+      setLoading(true);
+      try {
+        const res = await fetch(`/api/fs/explore?path=${encodeURIComponent(currentPath)}`);
+        if (res.ok) {
+          const data = await res.json();
+          setItems(data.items.map((i: any) => ({
+            name: i.name,
+            type: i.is_dir ? 'directory' : 'file',
+            path: i.path,
+            size: i.size,
+            status: 'clean' // Defaulting to clean since explore doesn't know triage state
+          })));
+        } else {
+          toast({ title: "Error", description: "Failed to load directory", variant: "destructive" });
+        }
+      } catch (err) {
+        toast({ title: "Error", description: "Network error loading directory", variant: "destructive" });
+      } finally {
+        setLoading(false);
       }
-      setItems(mockItems);
-      setLoading(false);
-    }, 300);
+    }
+    loadDirectory();
   }, [currentPath]);
 
   const handleNavigate = (newPath: string) => {

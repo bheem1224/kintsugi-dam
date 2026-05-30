@@ -43,7 +43,7 @@ export default function Dashboard() {
       .catch(console.error);
   }, []);
 
-  const { stats, loading } = useSystem()
+  const { loading } = useSystem()
 
   // MOCK DATA: Quadrant 1 (System Integrity Pool)
   const integrityPool = {

@@ -37,12 +37,10 @@ export default function Dashboard() {
   });
 
   useEffect(() => {
-    if (typeof window !== 'undefined') {
-      fetch('/api/stats')
-        .then(r => r.json())
-        .then(setStats)
-        .catch(console.error);
-    }
+    fetch('/api/stats')
+      .then(r => r.json())
+      .then(setStats)
+      .catch(console.error);
   }, []);
 
   const { loading } = useSystem()

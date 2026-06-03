@@ -45,35 +45,13 @@ export default function Dashboard() {
 
   const { loading } = useSystem()
 
-  // MOCK DATA: Quadrant 1 (System Integrity Pool)
-  const integrityPool = {
-    totalStorage: "40 TB",
-    scannedStorage: "14.2 TB",
-    throughput: 142, // items/sec
-    zfsSnapshotSafe: true,
-  }
 
-  // MOCK DATA: Quadrant 2 (Deep Core Audit / Telemetry)
-  const auditTelemetry = {
-    bitRotAlerts: 42,
-    truncatedMedia: 15,
-    corruptedExif: 8,
-  }
 
-  // MOCK DATA: Quadrant 3 (Remediation Deltas)
-  const remediationDeltas = {
-    zfsRestores: 1204,
-    cloudFetches: 450,
-    aiInfills: 89,
-  }
 
-  // MOCK DATA: Quadrant 4 (Retention Queue Clock)
-  const retentionQueue = [
-    { filename: "File_02.jpg", timeRemaining: "14h 22m", status: "critical" },
-    { filename: "IMG_9043.CR2", timeRemaining: "1d 4h", status: "warning" },
-    { filename: "backup_archive.zip", timeRemaining: "2d 12h", status: "normal" },
-    { filename: "video_clip_01.mp4", timeRemaining: "5d 0h", status: "normal" },
-  ]
+
+
+
+
 
   if (loading) {
     return <div className="p-8">Loading dashboard...</div>
@@ -105,8 +83,8 @@ export default function Dashboard() {
               <div>
                 <p className="text-sm font-medium text-muted-foreground mb-1">Storage Capacity Scanned</p>
                 <div className="flex items-end gap-2">
-                  <span className="text-4xl font-bold text-white/90">{integrityPool.scannedStorage}</span>
-                  <span className="text-xl text-muted-foreground pb-1">/ {integrityPool.totalStorage}</span>
+                  <span className="text-4xl font-bold text-white/90">{stats.total_scanned.toLocaleString()}</span>
+                  <span className="text-xl text-muted-foreground pb-1">/ "Total files"</span>
                 </div>
                 {/* Progress bar mock */}
                 <div className="w-full bg-white/5 h-2 mt-3 rounded-full overflow-hidden">
@@ -117,14 +95,14 @@ export default function Dashboard() {
               <div className="grid grid-cols-2 gap-4">
                 <div className="bg-black/40 p-4 rounded-xl border border-white/5">
                   <p className="text-xs text-muted-foreground mb-1 flex items-center gap-1"><Zap className="w-3 h-3 text-yellow-500" /> Active Throughput</p>
-                  <p className="text-2xl font-mono text-white/90">{integrityPool.throughput} <span className="text-sm text-muted-foreground">i/s</span></p>
+                  <p className="text-2xl font-mono text-white/90">"-" <span className="text-sm text-muted-foreground">i/s</span></p>
                 </div>
                 <div className="bg-black/40 p-4 rounded-xl border border-white/5">
                   <p className="text-xs text-muted-foreground mb-1 flex items-center gap-1"><ShieldCheck className="w-3 h-3 text-emerald-500" /> ZFS Snapshot Cache</p>
                   <div className="flex items-center gap-2 mt-1">
-                    <div className={`w-2 h-2 rounded-full ${integrityPool.zfsSnapshotSafe ? 'bg-emerald-500 animate-pulse' : 'bg-red-500'}`} />
-                    <span className={`text-lg font-semibold ${integrityPool.zfsSnapshotSafe ? 'text-emerald-500' : 'text-red-500'}`}>
-                      {integrityPool.zfsSnapshotSafe ? "SECURE" : "VULNERABLE"}
+                    <div className={`w-2 h-2 rounded-full ${true ? 'bg-emerald-500 animate-pulse' : 'bg-red-500'}`} />
+                    <span className={`text-lg font-semibold ${true ? 'text-emerald-500' : 'text-red-500'}`}>
+                      {true ? "SECURE" : "VULNERABLE"}
                     </span>
                   </div>
                 </div>
@@ -155,7 +133,7 @@ export default function Dashboard() {
                   <p className="text-xs text-destructive/70">Cryptographic hash mismatch</p>
                 </div>
               </div>
-              <span className="text-3xl font-bold text-destructive">{auditTelemetry.bitRotAlerts}</span>
+              <span className="text-3xl font-bold text-destructive">{stats.bit_rot_alerts.toLocaleString()}</span>
             </div>
 
             <div className="flex items-center justify-between p-4 bg-yellow-500/10 border border-yellow-500/20 rounded-xl">
@@ -168,7 +146,7 @@ export default function Dashboard() {
                   <p className="text-xs text-yellow-500/70">Incomplete file payloads</p>
                 </div>
               </div>
-              <span className="text-3xl font-bold text-yellow-500">{auditTelemetry.truncatedMedia}</span>
+              <span className="text-3xl font-bold text-yellow-500">"-"</span>
             </div>
 
             <div className="flex items-center justify-between p-4 bg-orange-500/10 border border-orange-500/20 rounded-xl">
@@ -181,7 +159,7 @@ export default function Dashboard() {
                   <p className="text-xs text-orange-500/70">Malformed metadata</p>
                 </div>
               </div>
-              <span className="text-3xl font-bold text-orange-500">{auditTelemetry.corruptedExif}</span>
+              <span className="text-3xl font-bold text-orange-500">"-"</span>
             </div>
           </CardContent>
         </Card>
@@ -201,17 +179,17 @@ export default function Dashboard() {
           <CardContent className="flex-1 flex gap-4">
             <div className="flex-1 flex flex-col justify-center items-center p-4 bg-black/40 rounded-xl border border-white/5 text-center transition-colors hover:bg-white/5">
               <Server className="w-8 h-8 text-blue-400 mb-3" />
-              <span className="text-3xl font-bold text-white/90">{remediationDeltas.zfsRestores.toLocaleString()}</span>
+              <span className="text-3xl font-bold text-white/90">{stats.remediation_deltas.toLocaleString()}</span>
               <span className="text-xs text-muted-foreground mt-1 uppercase tracking-wider">ZFS Restores</span>
             </div>
             <div className="flex-1 flex flex-col justify-center items-center p-4 bg-black/40 rounded-xl border border-white/5 text-center transition-colors hover:bg-white/5">
               <Cloud className="w-8 h-8 text-cyan-400 mb-3" />
-              <span className="text-3xl font-bold text-white/90">{remediationDeltas.cloudFetches.toLocaleString()}</span>
+              <span className="text-3xl font-bold text-white/90">0</span>
               <span className="text-xs text-muted-foreground mt-1 uppercase tracking-wider">Cloud Fetches</span>
             </div>
             <div className="flex-1 flex flex-col justify-center items-center p-4 bg-black/40 rounded-xl border border-white/5 text-center transition-colors hover:bg-white/5">
               <Wand2 className="w-8 h-8 text-purple-400 mb-3" />
-              <span className="text-3xl font-bold text-white/90">{remediationDeltas.aiInfills.toLocaleString()}</span>
+              <span className="text-3xl font-bold text-white/90">0</span>
               <span className="text-xs text-muted-foreground mt-1 uppercase tracking-wider">AI Infills</span>
             </div>
           </CardContent>
@@ -231,26 +209,7 @@ export default function Dashboard() {
           </CardHeader>
           <CardContent className="flex-1 overflow-hidden">
              <div className="space-y-3 h-full overflow-y-auto pr-2 custom-scrollbar">
-                {retentionQueue.map((item, i) => (
-                  <div key={i} className="flex items-center justify-between p-3 bg-black/40 rounded-lg border border-white/5">
-                    <div className="flex items-center gap-3 overflow-hidden">
-                      <div className={`w-2 h-2 rounded-full shrink-0 ${
-                        item.status === 'critical' ? 'bg-destructive animate-pulse' :
-                        item.status === 'warning' ? 'bg-yellow-500' : 'bg-primary'
-                      }`} />
-                      <span className="text-sm font-medium text-white/80 truncate">{item.filename}</span>
-                    </div>
-                    <div className="flex items-center gap-2 shrink-0">
-                      <span className="text-xs text-muted-foreground">Pruning in</span>
-                      <Badge variant="outline" className={`font-mono ${
-                        item.status === 'critical' ? 'border-destructive text-destructive' :
-                        item.status === 'warning' ? 'border-yellow-500 text-yellow-500' : 'border-white/20 text-muted-foreground'
-                      }`}>
-                        {item.timeRemaining}
-                      </Badge>
-                    </div>
-                  </div>
-                ))}
+                <div className="text-3xl font-bold text-yellow-500">{stats.ttl_expirations.toLocaleString()}</div><p className="text-sm text-muted-foreground mt-2">Items processed after TTL expiration.</p>
              </div>
           </CardContent>
         </Card>

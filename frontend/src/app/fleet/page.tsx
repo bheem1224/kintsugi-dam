@@ -3,6 +3,9 @@
 import * as React from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
+import { FleetSetupWizard } from "@/components/FleetSetupWizard"
+import { WorkerNodeConfig } from "@/components/WorkerNodeConfig"
+import { FleetLogViewer } from "@/components/FleetLogViewer"
 import { Server, Download, ShieldCheck, Cpu } from "lucide-react"
 import JSZip from "jszip"
 import { saveAs } from "file-saver"
@@ -11,6 +14,10 @@ import { toast } from "sonner"
 export default function FleetPage() {
     const [activeTab, setActiveTab] = React.useState<"ingestion" | "compute">("compute");
     const [generating, setGenerating] = React.useState(false);
+
+    const [showWizard, setShowWizard] = React.useState(false);
+    const [selectedNodeId, setSelectedNodeId] = React.useState<string | null>(null);
+
 
     const generateBundle = async () => {
         setGenerating(true);
@@ -57,6 +64,11 @@ MAX_CONCURRENCY=auto
             setGenerating(false);
         }
     };
+
+
+    if (showWizard) {
+        return <div className="container py-8"><FleetSetupWizard onComplete={() => setShowWizard(false)} /></div>;
+    }
 
     return (
         <div className="max-w-4xl mx-auto space-y-8 py-6">

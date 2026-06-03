@@ -11,6 +11,9 @@ import { Slider } from "@/components/ui/slider"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { useAuth } from "@/context/AuthContext"
 import { toast } from "sonner"
+import { UsersAndAccess } from "@/components/UsersAndAccess"
+import { ProfileBuilder } from "@/components/ProfileBuilder"
+import { DirectoryPicker } from "@/components/DirectoryPicker"
 import { Save, Plus, ArrowDown, DatabaseBackup, Cloud, Sparkles, UserCheck, Clock, ShieldAlert } from "lucide-react"
 
 import {
@@ -36,6 +39,22 @@ type Schema = {
 
 type CategorizedSettings = {
   [category: string]: { key: string, field: SchemaField }[]
+}
+
+
+function DirPickerWrapper({ field }: { field: any }) {
+  const [isOpen, setIsOpen] = React.useState(false);
+  return (
+    <>
+      <Button type="button" variant="outline" onClick={() => setIsOpen(true)}>Browse</Button>
+      <DirectoryPicker
+        value={field.value || ''}
+        onChange={(val) => { field.onChange(val); setIsOpen(false); }}
+        isOpen={isOpen}
+        onClose={() => setIsOpen(false)}
+      />
+    </>
+  );
 }
 
 export default function SettingsPage() {
@@ -314,7 +333,60 @@ export default function SettingsPage() {
 
             {categoryKeys.map(cat => (
               <TabsContent key={cat} value={cat} className="w-full grid grid-cols-1 gap-6 pt-4 focus-visible:outline-none focus-visible:ring-0">
-                {cat === "General" && renderQoSSlider()}
+                {cat === "General" && <>{renderQoSSlider()}
+          <Card className="bg-black/40 border-white/10 backdrop-blur-md mt-6">
+            <CardHeader>
+              <CardTitle>Multi-Directory Mapping</CardTitle>
+              <CardDescription>Assign specific remediation profiles to independent directories.</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex gap-4 items-end border-b border-white/10 pb-4">
+                <div className="flex-1">
+                  <label className="text-xs text-zinc-400 mb-1 block">Directory</label>
+                  <div className="flex gap-2">
+                     <Input placeholder="/media/photos" className="bg-black/40 border-white/10" />
+                     <Button variant="outline" size="sm">Browse</Button>
+                  </div>
+                </div>
+                <div className="flex-1">
+                  <label className="text-xs text-zinc-400 mb-1 block">Assigned Profile</label>
+                  <Select defaultValue="default">
+                     <SelectTrigger className="bg-black/40 border-white/10"><SelectValue /></SelectTrigger>
+                     <SelectContent>
+                        <SelectItem value="default">Aggressive Auto-Fix</SelectItem>
+                        <SelectItem value="veto">Veto Only</SelectItem>
+                     </SelectContent>
+                  </Select>
+                </div>
+                <Button variant="secondary" size="sm">+ Add Map</Button>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="bg-black/40 border-white/10 backdrop-blur-md mt-6">
+            <CardHeader>
+              <CardTitle>Maintenance & QoS Windows</CardTitle>
+              <CardDescription>Configure off-peak hours and scheduling bounds.</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+               <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium mb-1">Maintenance Start</label>
+                    <Input type="time" defaultValue="01:00" className="bg-black/40 border-white/10" />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium mb-1">Maintenance End</label>
+                    <Input type="time" defaultValue="05:00" className="bg-black/40 border-white/10" />
+                  </div>
+               </div>
+               <div>
+                  <label className="block text-sm font-medium mb-1">QoS Flex Window Overrides</label>
+                  <p className="text-xs text-zinc-400 mb-2">Allow max threads during specified hours.</p>
+                  <Input placeholder="e.g. 02:00-06:00" className="bg-black/40 border-white/10" />
+               </div>
+            </CardContent>
+          </Card>
+</>}
 
                 {cat === "Remediation" ? (
                    renderRemediationPipeline()

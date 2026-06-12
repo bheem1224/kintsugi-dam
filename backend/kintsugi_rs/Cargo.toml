@@ -9,5 +9,5 @@ name = "kintsugi_rs"
 crate-type = ["cdylib"]
 
 [dependencies]
-pyo3 = "0.28.2"
+pyo3 = "0.29.0"
 blake3 = "1.5.0"
